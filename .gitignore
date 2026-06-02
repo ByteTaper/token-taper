@@ -55,6 +55,8 @@ yarn-error.log
 resources/config.local.edn
 resources/secrets.edn
 
+*.keep
+
 
 # Docker / Compose local state
 docker-compose.override.yml
