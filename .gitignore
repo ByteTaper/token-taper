@@ -48,11 +48,9 @@ yarn-error.log
 .env.*
 !.env.example
 
-*.local.edn
 *.secret.edn
 *.secrets.edn
 
-resources/config.local.edn
 resources/secrets.edn
 
 *.keep

@@ -1,4 +1,4 @@
-.PHONY: run api migrate test uber build clean
+.PHONY: run api migrate test uber build clean fmt-check fmt-fix fmt
 
 run api:
 	clojure -M:run api
@@ -14,3 +14,9 @@ uber build:
 
 clean:
 	clojure -T:build clean
+
+fmt-check:
+	clojure -T:fmt fmt-check
+
+fmt-fix fmt:
+	clojure -T:fmt fmt-fix

@@ -1,0 +1,11 @@
+{:token-taper/app
+ {:service-name "token-taper"
+  :service-version #or [#env TOKEN_TAPER_VERSION "0.1.0-SNAPSHOT"]
+  :environment #or [#env TOKEN_TAPER_ENV "local"]}
+
+ :token-taper/http
+ {:host #or [#env TOKEN_TAPER_HTTP_HOST "0.0.0.0"]
+  :port #long #or [#env TOKEN_TAPER_HTTP_PORT 8080]}
+
+ :token-taper/config
+ {:loaded-from #or [#env TOKEN_TAPER_CONFIG "resources/config.edn"]}}
