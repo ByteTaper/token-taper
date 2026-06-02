@@ -1,23 +1,29 @@
-// SPDX-FileCopyrightText: 2026 Haluan Irsad
-// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
+;; SPDX-FileCopyrightText: 2026 Haluan Irsad
+;; SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 (ns token-taper.main
-  (:gen-class))
-
-(def service-name "token-taper")
-(def version "0.1.0-SNAPSHOT")
-
-(defn system-info []
-  {:service service-name
-   :version version})
+  (:gen-class)
+  (:require
+   [token-taper.system.components]
+   [token-taper.system.config :as config]
+   [token-taper.system.integrant :as system]))
 
 (defn start-api! []
-  (println "TokenTaper API mode placeholder started")
-  (println (pr-str (system-info))))
+  (let [cfg (config/load-config)
+        sys (system/start-system! cfg)]
+    (.addShutdownHook
+     (Runtime/getRuntime)
+     (Thread. #(system/stop-system! sys)))
+    (println "TokenTaper system started")
+    (println (pr-str {:service (get-in sys [:token-taper/app :service-name])
+                      :version (get-in sys [:token-taper/app :service-version])
+                      :environment (get-in sys [:token-taper/app :environment])}))))
 
 (defn run-migrations! []
-  (println "TokenTaper migration mode placeholder started")
-  (println "No migrations are defined in ACG-0101"))
+  (let [cfg (config/load-config)]
+    (println "TokenTaper migration mode placeholder started")
+    (println "No migrations are defined; config environment:"
+             (get-in cfg [:token-taper/app :environment]))))
 
 (defn usage []
   (str "Usage: token-taper <mode>\n\n"

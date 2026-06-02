@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2026 Haluan Irsad
-// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
+;; SPDX-FileCopyrightText: 2026 Haluan Irsad
+;; SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 (ns build
   (:require

@@ -1,0 +1,11 @@
+{:token-taper/app
+ {:service-name "token-taper"
+  :service-version "0.1.0-SNAPSHOT"
+  :environment "test"}
+
+ :token-taper/http
+ {:host "127.0.0.1"
+  :port 0}
+
+ :token-taper/config
+ {:loaded-from "resources/config.test.edn"}}
