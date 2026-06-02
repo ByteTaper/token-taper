@@ -1,0 +1,158 @@
+# Clojure / JVM
+target/
+classes/
+out/
+.cpcache/
+.nrepl-port
+.rebel_readline_history
+.shadow-cljs/
+.cljs_node_repl/
+.lsp/
+.clj-kondo/.cache/
+
+# Compiled artifacts
+*.class
+*.jar
+*.war
+*.ear
+*.uberjar
+*.pom
+
+# AOT / build output
+bin/
+dist/
+build-output/
+
+
+# Leiningen / Boot / tools.build
+/checkouts/
+/pom.xml
+/pom.xml.asc
+/.lein-*
+/.nrepl-history
+.boot/
+boot.properties
+
+
+# ClojureScript / Node, if added later
+node_modules/
+.npm/
+.yarn/
+.pnp.*
+package-lock.json
+yarn-error.log
+
+
+# Environment / secrets / local config
+.env
+.env.*
+!.env.example
+
+*.local.edn
+*.secret.edn
+*.secrets.edn
+
+resources/config.local.edn
+resources/secrets.edn
+
+
+# Docker / Compose local state
+docker-compose.override.yml
+.docker/
+tmp/
+.tmp/
+
+# Local mounted volumes
+data/
+volumes/
+.local-data/
+
+# Database local data
+postgres-data/
+redis-data/
+clickhouse-data/
+redpanda-data/
+kafka-data/
+
+
+# Logs / runtime files
+logs/
+*.log
+*.pid
+*.lock
+*.tmp
+*.bak
+*.swp
+*.swo
+
+
+# Test / coverage / reports
+coverage/
+test-results/
+junit.xml
+reports/
+*.prof
+*.jfr
+
+
+# Editor / IDE
+.idea/
+.vscode/
+*.iml
+
+
+# macOS / Linux / Windows noise
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+
+# Certificates / keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+
+
+# OpenTelemetry / Prometheus / Grafana local exports
+otel-data/
+prometheus-data/
+grafana-data/
+
+
+# Generated API docs / static builds
+public/generated/
+docs/generated/
+openapi/generated/
+
+
+# Editor/IDE
+.idea/
+.vscode/
+
+
+# Internal folders
+internalx/
+
+
+# AGENTS folders
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+graphify-out/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+
+# AGENTS files
+.graphifyignore
+.cursorignore
