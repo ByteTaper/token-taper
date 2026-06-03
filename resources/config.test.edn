@@ -5,7 +5,13 @@
 
  :token-taper/http
  {:host "127.0.0.1"
-  :port 0}
+  :port 0
+  :join? false
+  :stop-timeout-ms 1000}
+
+ :token-taper/http-server
+ {:config #ig/ref :token-taper/http
+  :app #ig/ref :token-taper/app}
 
  :token-taper/config
  {:loaded-from "resources/config.test.edn"}}

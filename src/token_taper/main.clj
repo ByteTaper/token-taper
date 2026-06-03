@@ -9,15 +9,22 @@
    [token-taper.system.integrant :as system]))
 
 (defn start-api! []
-  (let [cfg (config/load-config)
+  (let [done (promise)
+        cfg (config/load-config)
         sys (system/start-system! cfg)]
     (.addShutdownHook
      (Runtime/getRuntime)
-     (Thread. #(system/stop-system! sys)))
+     (Thread.
+      #(do
+         (system/stop-system! sys)
+         (deliver done :stopped))))
     (println "TokenTaper system started")
-    (println (pr-str {:service (get-in sys [:token-taper/app :service-name])
-                      :version (get-in sys [:token-taper/app :service-version])
-                      :environment (get-in sys [:token-taper/app :environment])}))))
+    (println
+     (pr-str {:service (get-in sys [:token-taper/app :service-name])
+              :version (get-in sys [:token-taper/app :service-version])
+              :environment (get-in sys [:token-taper/app :environment])
+              :http-port (get-in sys [:token-taper/http-server :port])}))
+    @done))
 
 (defn run-migrations! []
   (let [cfg (config/load-config)]
@@ -28,13 +35,13 @@
 (defn usage []
   (str "Usage: token-taper <mode>\n\n"
        "Modes:\n"
-       "  api      Start API service placeholder\n"
+       "  api      Start API service\n"
        "  migrate  Run migration placeholder\n"))
 
 (defn -main [& args]
   (let [mode (or (first args) "api")]
     (case mode
-      "api"     (start-api!)
+      "api" (start-api!)
       "migrate" (run-migrations!)
       (do
         (binding [*out* *err*]

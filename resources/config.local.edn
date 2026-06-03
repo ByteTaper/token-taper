@@ -3,4 +3,10 @@
 
  :token-taper/http
  {:host "0.0.0.0"
-  :port 8080}}
+  :port 8080
+  :join? false
+  :stop-timeout-ms 5000}
+
+ :token-taper/http-server
+ {:config #ig/ref :token-taper/http
+  :app #ig/ref :token-taper/app}}
