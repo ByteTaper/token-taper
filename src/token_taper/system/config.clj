@@ -23,7 +23,7 @@
 
 (defn validate-config!
   [config]
-  (doseq [k [:token-taper/app :token-taper/http]]
+  (doseq [k [:token-taper/app :token-taper/http :token-taper.db/datasource]]
     (when-not (required-key? config k)
       (throw (ex-info "Missing required config key"
                       {:missing-key k}))))

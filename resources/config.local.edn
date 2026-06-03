@@ -9,4 +9,17 @@
 
  :token-taper/http-server
  {:config #ig/ref :token-taper/http
-  :app #ig/ref :token-taper/app}}
+  :app #ig/ref :token-taper/app}
+
+ :token-taper.db/datasource
+ {:jdbc-url "jdbc:postgresql://localhost:5432/token_taper"
+  :username "token_taper"
+  :password "token_taper"
+  :pool-name "token-taper-db"
+  :maximum-pool-size 10
+  :minimum-idle 1
+  :connection-timeout-ms 30000
+  :validation-timeout-ms 5000
+  :idle-timeout-ms 600000
+  :max-lifetime-ms 1800000
+  :auto-commit true}}

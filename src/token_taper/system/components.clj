@@ -5,7 +5,8 @@
   (:require
    [integrant.core :as ig]
    [token-taper.api.server :as http-server]
-   [token-taper.api.system-info :as system-info]))
+   [token-taper.api.system-info :as system-info]
+   [token-taper.db.datasource :as datasource]))
 
 (defmethod ig/init-key :token-taper/app
   [_ config]
@@ -32,6 +33,14 @@
 (defmethod ig/halt-key! :token-taper/http-server
   [_ component]
   (http-server/stop-server! component))
+
+(defmethod ig/init-key :token-taper.db/datasource
+  [_ config]
+  (datasource/make-datasource config))
+
+(defmethod ig/halt-key! :token-taper.db/datasource
+  [_ ds]
+  (datasource/close-datasource! ds))
 
 (defmethod ig/init-key :token-taper/config
   [_ config]

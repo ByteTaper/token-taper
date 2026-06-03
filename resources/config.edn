@@ -13,5 +13,19 @@
  {:config #ig/ref :token-taper/http
   :app #ig/ref :token-taper/app}
 
+ :token-taper.db/datasource
+ {:jdbc-url #or [#env TOKEN_TAPER_DATABASE_URL
+                 "jdbc:postgresql://localhost:5432/token_taper"]
+  :username #or [#env TOKEN_TAPER_DATABASE_USER "token_taper"]
+  :password #or [#env TOKEN_TAPER_DATABASE_PASSWORD "token_taper"]
+  :pool-name #or [#env TOKEN_TAPER_DATABASE_POOL_NAME "token-taper-db"]
+  :maximum-pool-size #long #or [#env TOKEN_TAPER_DATABASE_MAX_POOL_SIZE 10]
+  :minimum-idle #long #or [#env TOKEN_TAPER_DATABASE_MIN_IDLE 1]
+  :connection-timeout-ms #long #or [#env TOKEN_TAPER_DATABASE_CONNECTION_TIMEOUT_MS 30000]
+  :validation-timeout-ms #long #or [#env TOKEN_TAPER_DATABASE_VALIDATION_TIMEOUT_MS 5000]
+  :idle-timeout-ms #long #or [#env TOKEN_TAPER_DATABASE_IDLE_TIMEOUT_MS 600000]
+  :max-lifetime-ms #long #or [#env TOKEN_TAPER_DATABASE_MAX_LIFETIME_MS 1800000]
+  :auto-commit true}
+
  :token-taper/config
  {:loaded-from #or [#env TOKEN_TAPER_CONFIG "resources/config.edn"]}}
