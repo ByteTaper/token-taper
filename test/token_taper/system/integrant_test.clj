@@ -13,6 +13,7 @@
         sys (system/start-system! cfg)]
     (try
       (is (= :started (get-in sys [:token-taper/app :status])))
-      (is (= :configured (get-in sys [:token-taper/http :status])))
+      (is (= :started (get-in sys [:token-taper/http-server :status])))
+      (is (pos? (get-in sys [:token-taper/http-server :port])))
       (finally
         (system/stop-system! sys)))))

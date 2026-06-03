@@ -4,10 +4,24 @@ Standalone Clojure backend service for AI cost governance.
 
 ## Development
 
-Run placeholder API mode:
+Run API mode (starts Jetty HTTP server on port 8080 by default):
 
 ```bash
 clojure -M:run api
+```
+
+HTTP endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health/live` | Liveness |
+| GET | `/health/ready` | Readiness (HTTP only in v0.1) |
+| GET | `/v1/system/info` | Service metadata |
+
+```bash
+curl -i http://localhost:8080/health/live
+curl -i http://localhost:8080/health/ready
+curl -i http://localhost:8080/v1/system/info
 ```
 
 Run placeholder migration mode:

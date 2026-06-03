@@ -4,7 +4,12 @@
 (ns token-taper.system.config
   (:require
    [aero.core :as aero]
-   [clojure.java.io :as io]))
+   [clojure.java.io :as io]
+   [integrant.core :as ig]))
+
+(defmethod aero.core/reader 'ig/ref
+  ([_ _tag value]
+   (ig/ref value)))
 
 (def default-config-path "resources/config.edn")
 
@@ -24,12 +29,24 @@
                       {:missing-key k}))))
   config)
 
+(defn- classpath-resource-name [path]
+  (if (.startsWith path "resources/")
+    (subs path (count "resources/"))
+    path))
+
+(defn- load-integrant-config [path]
+  (let [resource-name (classpath-resource-name path)
+        resource-or-file (or (io/resource resource-name)
+                             (io/resource path)
+                             (io/file path))]
+    (when-not resource-or-file
+      (throw (ex-info "Config not found" {:path path})))
+    (aero/read-config resource-or-file)))
+
 (defn load-config
   ([]
    (load-config (config-path)))
   ([path]
-   (let [resource-or-file (or (io/resource path)
-                              (io/file path))]
-     (-> resource-or-file
-         aero/read-config
-         validate-config!))))
+   (-> path
+       load-integrant-config
+       validate-config!)))
