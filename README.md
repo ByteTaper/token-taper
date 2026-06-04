@@ -2,6 +2,18 @@
 
 Standalone Clojure backend service for AI cost governance.
 
+## v0.1 Local Quickstart
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+docker compose run --rm tokentaper-api migrate
+docker compose up -d tokentaper-api
+BASE_URL=http://localhost:8080 ./scripts/smoke-v0.1.sh
+```
+
+Full setup, scope, troubleshooting, and exit criteria: [docs/v0.1-foundation.md](docs/v0.1-foundation.md).
+
 ## Development
 
 Run API mode (starts Jetty HTTP server on port 8080 by default):
