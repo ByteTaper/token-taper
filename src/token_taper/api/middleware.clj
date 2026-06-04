@@ -4,7 +4,9 @@
 (ns token-taper.api.middleware
   (:require
    [clojure.string :as str]
-   [token-taper.api.response :as response])
+   [token-taper.api.error :as error]
+   [token-taper.api.response :as response]
+   [token-taper.observability.logging :as logging])
   (:import
    (java.util UUID)))
 
@@ -30,13 +32,44 @@
           response (handler request')]
       (assoc-in response [:headers "x-request-id"] request-id))))
 
-(defn wrap-exception
-  [handler]
+(defn wrap-request-logging
+  [handler logger]
   (fn [request]
-    (try
-      (handler request)
-      (catch Throwable _
-        (response/internal-error "Internal server error" (:request-id request))))))
+    (let [started (System/currentTimeMillis)]
+      (try
+        (let [response (handler request)
+              duration-ms (- (System/currentTimeMillis) started)
+              status (or (:status response) 500)]
+          (when logger
+            (logging/emit!
+             logger
+             (logging/level-for-status status)
+             :http_request_completed
+             (logging/build-request-log-event logger request response duration-ms)))
+          response)
+        (catch Throwable t
+          (when logger
+            (let [duration-ms (- (System/currentTimeMillis) started)]
+              (logging/error!
+               logger
+               :http_request_failed
+               (merge (logging/build-request-log-event
+                       logger
+                       request
+                       {:status 500}
+                       duration-ms)
+                      (logging/build-error-fields logger t)))))
+          (throw t))))))
+
+(defn wrap-exception
+  ([handler] (wrap-exception handler nil))
+  ([handler logger]
+   (fn [request]
+     (try
+       (handler request)
+       (catch Throwable t
+         (error/log-unhandled-exception! logger request t)
+         (response/internal-error "Internal server error" (:request-id request)))))))
 
 (defn wrap-basic-headers
   [handler]

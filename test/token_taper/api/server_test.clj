@@ -9,7 +9,8 @@
    [token-taper.system.components]
    [token-taper.system.config :as config]
    [token-taper.observability.metrics :as metrics]
-   [token-taper.system.integrant :as system]))
+   [token-taper.system.integrant :as system]
+   [token-taper.test-support.logging :as log-support]))
 
 (def ^:private system-info
   {:service "token-taper"
@@ -33,9 +34,11 @@
     :git-sha "unknown"}))
 
 (defn- handler-opts []
-  {:system-info system-info
-   :health-system health-system
-   :metrics (metrics-component)})
+  (let [logger (log-support/test-logger)]
+    {:system-info system-info
+     :health-system (assoc health-system :logger logger)
+     :metrics (assoc (metrics-component) :logger logger)
+     :logger logger}))
 
 (deftest handler-without-jetty-test
   (let [response ((server/handler (handler-opts))

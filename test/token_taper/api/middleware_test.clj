@@ -8,18 +8,20 @@
    [ring.mock.request :as mock]
    [token-taper.api.middleware :as middleware]
    [token-taper.observability.http-metrics :as http-metrics]
-   [token-taper.observability.metrics :as metrics]))
+   [token-taper.observability.metrics :as metrics]
+   [token-taper.test-support.logging :as log-support]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn keyword}))
 
 (defn- app []
-  (-> (fn [request]
-        (if (= "/boom" (:uri request))
-          (throw (ex-info "boom" {}))
-          {:status 200 :body "ok" :headers {}}))
-      middleware/wrap-basic-headers
-      middleware/wrap-exception
-      middleware/wrap-request-id))
+  (let [logger (log-support/test-logger)]
+    (-> (fn [request]
+          (if (= "/boom" (:uri request))
+            (throw (ex-info "boom" {}))
+            {:status 200 :body "ok" :headers {}}))
+        middleware/wrap-basic-headers
+        (middleware/wrap-exception logger)
+        middleware/wrap-request-id)))
 
 (deftest preserves-request-id-test
   (let [request (assoc (mock/request :get "/")
@@ -44,7 +46,8 @@
       (is (nil? (re-find #"stack" body-str))))))
 
 (defn- metrics-app []
-  (let [metrics-component (metrics/create-registry
+  (let [logger (log-support/test-logger)
+        metrics-component (metrics/create-registry
                            {:app {:service-version "0.1.0-SNAPSHOT" :environment "test"}
                             :datasource (Object.)
                             :health-config {:database-timeout-ms 100}
@@ -60,8 +63,9 @@
             :else
             {:status 200 :body "ok" :headers {}}))
         middleware/wrap-basic-headers
-        middleware/wrap-exception
         (http-metrics/wrap-http-metrics metrics-component)
+        (middleware/wrap-request-logging logger)
+        (middleware/wrap-exception logger)
         middleware/wrap-request-id)))
 
 (deftest http-metrics-increments-request-counter-test

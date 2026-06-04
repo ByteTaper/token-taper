@@ -7,6 +7,7 @@
    [token-taper.api.server :as http-server]
    [token-taper.api.system-info :as system-info]
    [token-taper.db.datasource :as datasource]
+   [token-taper.observability.logging :as logging]
    [token-taper.observability.metrics :as observability-metrics]))
 
 (defmethod ig/init-key :token-taper/app
@@ -33,6 +34,22 @@
   [_ _]
   nil)
 
+(defmethod ig/init-key :token-taper.logging/config
+  [_ config]
+  config)
+
+(defmethod ig/halt-key! :token-taper.logging/config
+  [_ _]
+  nil)
+
+(defmethod ig/init-key :token-taper.logging/context
+  [_ opts]
+  (logging/create-context opts))
+
+(defmethod ig/halt-key! :token-taper.logging/context
+  [_ _]
+  nil)
+
 (defmethod ig/init-key :token-taper.observability/metrics
   [_ {:keys [app datasource health-config git-sha]}]
   (observability-metrics/create-registry
@@ -46,15 +63,18 @@
   nil)
 
 (defmethod ig/init-key :token-taper/http-server
-  [_ {:keys [config app datasource loaded-config health-config metrics]}]
+  [_ {:keys [config app datasource loaded-config health-config metrics logger]}]
   (let [info (system-info/build app)
         health-system {:app app
                        :config loaded-config
                        :datasource datasource
-                       :health-config (or health-config {})}]
+                       :health-config (or health-config {})
+                       :logger logger}
+        metrics' (assoc metrics :logger logger)]
     (-> (http-server/start-server! config {:system-info info
                                            :health-system health-system
-                                           :metrics metrics})
+                                           :metrics metrics'
+                                           :logger logger})
         (assoc :status :started))))
 
 (defmethod ig/halt-key! :token-taper/http-server

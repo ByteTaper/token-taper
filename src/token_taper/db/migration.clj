@@ -5,27 +5,10 @@
   (:require
    [clojure.java.io :as io]
    [clojure.string :as str]
-   [migratus.core :as migratus])
+   [migratus.core :as migratus]
+   [token-taper.observability.logging :as logging])
   (:import
    [java.io File]))
-
-(defn- redact-jdbc-url
-  [jdbc-url]
-  (when jdbc-url
-    (str/replace jdbc-url #"(//[^:/?#]+:)[^@]+@" "$1***@")))
-
-(defn sanitize-for-log
-  [m]
-  (cond-> m
-    (:jdbc-url m) (update :jdbc-url redact-jdbc-url)))
-
-(defn log-event!
-  [event app fields]
-  (let [base {:event event
-              :service (:service-name app "token-taper")
-              :version (:service-version app)
-              :env (:environment app)}]
-    (println (pr-str (sanitize-for-log (merge base fields))))))
 
 (defn migratus-config
   [datasource migration-dir]
@@ -65,48 +48,46 @@
       (.execute stmt "SELECT 1"))))
 
 (defn migrate!
-  [{:keys [datasource migration-dir app]}]
+  [{:keys [datasource migration-dir logger] :as opts}]
   (let [resolved-dir (resolve-migration-dir! migration-dir)
         started (System/currentTimeMillis)]
-    (log-event! "migration_started" app {:migration_dir resolved-dir})
+    (logging/info! logger :migration_started {:migration_dir resolved-dir})
     (try
       (verify-connection! datasource)
       (let [result (migratus/migrate (migratus-config datasource resolved-dir))]
-        (log-event! "migration_completed" app
-                    {:migration_dir resolved-dir
-                     :duration_ms (- (System/currentTimeMillis) started)
-                     :applied result})
+        (logging/info! logger :migration_completed
+                       {:migration_dir resolved-dir
+                        :duration_ms (- (System/currentTimeMillis) started)
+                        :applied result})
         result)
       (catch Exception e
-        (log-event! "migration_failed" app
-                    {:migration_dir resolved-dir
-                     :duration_ms (- (System/currentTimeMillis) started)
-                     :error_class (.. e getClass getName)
-                     :error_message (.getMessage e)})
+        (logging/error! logger :migration_failed
+                        (merge {:migration_dir resolved-dir
+                                :duration_ms (- (System/currentTimeMillis) started)}
+                               (logging/build-error-fields logger e)))
         (throw e)))))
 
 (defn rollback!
-  [{:keys [datasource migration-dir app]}]
+  [{:keys [datasource migration-dir logger] :as opts}]
   (let [resolved-dir (resolve-migration-dir! migration-dir)
         started (System/currentTimeMillis)]
-    (log-event! "migration_started" app
-                {:migration_dir resolved-dir :operation "rollback"})
+    (logging/info! logger :migration_started
+                   {:migration_dir resolved-dir :operation "rollback"})
     (try
       (verify-connection! datasource)
       (let [result (migratus/rollback (migratus-config datasource resolved-dir))]
-        (log-event! "migration_completed" app
-                    {:migration_dir resolved-dir
-                     :duration_ms (- (System/currentTimeMillis) started)
-                     :operation "rollback"
-                     :rolled-back result})
+        (logging/info! logger :migration_completed
+                       {:migration_dir resolved-dir
+                        :duration_ms (- (System/currentTimeMillis) started)
+                        :operation "rollback"
+                        :rolled-back result})
         result)
       (catch Exception e
-        (log-event! "migration_failed" app
-                    {:migration_dir resolved-dir
-                     :duration_ms (- (System/currentTimeMillis) started)
-                     :operation "rollback"
-                     :error_class (.. e getClass getName)
-                     :error_message (.getMessage e)})
+        (logging/error! logger :migration_failed
+                        (merge {:migration_dir resolved-dir
+                                :duration_ms (- (System/currentTimeMillis) started)
+                                :operation "rollback"}
+                               (logging/build-error-fields logger e)))
         (throw e)))))
 
 (defn run-migrations!

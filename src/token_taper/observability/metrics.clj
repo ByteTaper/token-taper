@@ -7,6 +7,7 @@
    [iapetos.core :as i]
    [iapetos.export :as export]
    [token-taper.db.health :as db-health]
+   [token-taper.observability.logging :as logging]
    [token-taper.observability.runtime-metrics :as runtime-metrics]))
 
 (def metrics-content-type
@@ -105,14 +106,10 @@
 
 (defn log-scrape-failure!
   [component exception]
-  (println
-   (pr-str
-    {:event "metrics_exposition_failed"
-     :service "tokentaper"
-     :version (get-in component [:app :service-version])
-     :env (get-in component [:app :environment])
-     :error_class (.getName (class exception))
-     :error_message (.getMessage exception)})))
+  (let [logger (:logger component)]
+    (when logger
+      (logging/error! logger :metrics_exposition_failed
+                      (logging/build-error-fields logger exception)))))
 
 (defn metrics-response
   [body]

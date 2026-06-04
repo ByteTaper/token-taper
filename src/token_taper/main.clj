@@ -6,41 +6,72 @@
   (:require
    [token-taper.db.datasource :as datasource]
    [token-taper.db.migration :as migration]
+   [token-taper.observability.logging :as logging]
    [token-taper.system.components]
    [token-taper.system.config :as config]
-   [token-taper.system.integrant :as system]))
+   [token-taper.system.integrant :as system])
+  (:import
+   [java.lang.management ManagementFactory]))
+
+(defn- pid
+  []
+  (let [name (ManagementFactory/getRuntimeMXBean)]
+    (Long/parseLong (subs (.getName name) 0 (.indexOf (.getName name) "@")))))
+
+(defn- logger-from-config
+  [cfg]
+  (logging/create-context
+   {:app (:token-taper/app cfg)
+    :logging-config (or (:token-taper.logging/config cfg) {})}))
+
+(defn- startup-fields
+  [cfg]
+  {:http_port (get-in cfg [:token-taper/http :port])
+   :java_version (System/getProperty "java.version")
+   :clojure_version (clojure-version)
+   :pid (pid)})
 
 (defn start-api! []
   (let [done (promise)
+        stop-started (atom nil)
         cfg (config/load-config)
-        sys (system/start-system! cfg)]
-    (.addShutdownHook
-     (Runtime/getRuntime)
-     (Thread.
-      #(do
-         (system/stop-system! sys)
-         (deliver done :stopped))))
-    (println "TokenTaper system started")
-    (println
-     (pr-str {:service (get-in sys [:token-taper/app :service-name])
-              :version (get-in sys [:token-taper/app :service-version])
-              :environment (get-in sys [:token-taper/app :environment])
-              :http-port (get-in sys [:token-taper/http-server :port])}))
-    @done))
+        logger (logger-from-config cfg)]
+    (logging/info! logger :service_starting (startup-fields cfg))
+    (try
+      (let [sys (system/start-system! cfg)]
+        (.addShutdownHook
+         (Runtime/getRuntime)
+         (Thread.
+          #(let [started (or @stop-started (System/currentTimeMillis))]
+             (reset! stop-started started)
+             (logging/info! logger :service_stopping {})
+             (system/stop-system! sys)
+             (logging/info! logger :service_stopped
+                            {:duration_ms (- (System/currentTimeMillis) started)})
+             (deliver done :stopped))))
+        (logging/info! logger :service_started
+                       (assoc (startup-fields cfg)
+                              :http_port (get-in sys [:token-taper/http-server :port])))
+        @done)
+      (catch Throwable t
+        (logging/fatal! logger :service_start_failed
+                        (merge (startup-fields cfg)
+                               (logging/build-error-fields logger t)))
+        (throw t)))))
 
 (defn run-migrations! []
   (let [cfg (config/load-config)
-        app (:token-taper/app cfg)
+        logger (logger-from-config cfg)
         mig-cfg (:token-taper.db/migration cfg)
         ds (datasource/make-datasource (:token-taper.db/datasource cfg))]
     (try
       (migration/run-migrations!
        {:datasource ds
         :migration-dir (:migration-dir mig-cfg)
-        :app app})
+        :logger logger})
       (catch Exception e
-        (binding [*out* *err*]
-          (println "Migration failed:" (.getMessage e)))
+        (logging/error! logger :migration_failed
+                        (logging/build-error-fields logger e))
         (System/exit 1))
       (finally
         (datasource/close-datasource! ds)))))

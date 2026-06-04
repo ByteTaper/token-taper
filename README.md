@@ -41,6 +41,20 @@ curl -s http://localhost:8080/metrics | grep tokentaper_database_ready
 
 Optional: `TOKEN_TAPER_HEALTH_DATABASE_TIMEOUT_MS` (default `1000`) bounds readiness DB query time.
 
+## Structured logging
+
+The service writes **NDJSON** (one JSON object per line) to **stderr**. Each line includes standard fields: `timestamp`, `level`, `event`, `service` (`tokentaper`), `version`, and `env`.
+
+HTTP requests get an `X-Request-Id` header (generated as `req_<uuid>` when absent). On completion, a `http_request_completed` event is logged with `request_id`, `method`, `path`, `route`, `status`, and `duration_ms`. Uncaught exceptions log `unhandled_exception` before returning a structured 500.
+
+Set log verbosity with `TOKEN_TAPER_LOG_LEVEL` (`debug`, `info`, `warn`, `error`, `fatal`; default `info`). Sensitive header names and connection strings are redacted as `[REDACTED]`.
+
+Example line:
+
+```json
+{"timestamp":"2026-06-02T12:00:00Z","level":"info","event":"http_request_completed","service":"tokentaper","version":"0.1.0-SNAPSHOT","env":"local","request_id":"req_…","method":"GET","path":"/health/live","route":"/health/live","status":200,"duration_ms":1}
+```
+
 Run database migrations (Migratus; does not start the HTTP server):
 
 ```bash
