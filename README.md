@@ -14,15 +14,22 @@ HTTP endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health/live` | Liveness |
-| GET | `/health/ready` | Readiness (HTTP only in v0.1) |
+| GET | `/health/live` | Liveness (process alive; no DB checks) |
+| GET | `/health/ready` | Readiness (config, system, PostgreSQL, migrations) |
 | GET | `/v1/system/info` | Service metadata |
+
+Health endpoints return **flat JSON** (not the `{data, error}` envelope used by `/v1/*`).
+
+- **Live** — always `200` while the HTTP server is running; does not check PostgreSQL.
+- **Ready** — `200` when config, system, database, and `schema_migrations` checks pass; `503` otherwise.
 
 ```bash
 curl -i http://localhost:8080/health/live
 curl -i http://localhost:8080/health/ready
 curl -i http://localhost:8080/v1/system/info
 ```
+
+Optional: `TOKEN_TAPER_HEALTH_DATABASE_TIMEOUT_MS` (default `1000`) bounds readiness DB query time.
 
 Run database migrations (Migratus; does not start the HTTP server):
 

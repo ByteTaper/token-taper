@@ -60,3 +60,16 @@
   ([message] (internal-error message nil))
   ([message request-id]
    (json-response 500 (envelope nil {:code "internal_error" :message message} request-id))))
+
+(defn health-ok
+  [body]
+  (json-response 200 body))
+
+(defn health-not-ready
+  [body]
+  (json-response 503 body))
+
+(defn health-internal-error
+  ([message] (health-internal-error message nil))
+  ([message _request-id]
+   (json-response 500 {:status "error" :message message})))
