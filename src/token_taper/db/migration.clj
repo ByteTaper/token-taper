@@ -22,6 +22,15 @@
    (some #(.endsWith (.getName ^File %) ".sql")
          (file-seq dir))))
 
+(defn- migratus-migration-dir
+  "Migratus requires a path relative to user.dir; resolve absolute dirs for Docker."
+  [migration-dir]
+  (let [dir-file (io/file migration-dir)]
+    (if (.isAbsolute dir-file)
+      (.toString (.relativize (.toPath (io/file (System/getProperty "user.dir")))
+                              (.toPath dir-file)))
+      migration-dir)))
+
 (defn resolve-migration-dir!
   [migration-dir]
   (let [dir-file (if (.isAbsolute (io/file migration-dir))
@@ -50,11 +59,12 @@
 (defn migrate!
   [{:keys [datasource migration-dir logger] :as opts}]
   (let [resolved-dir (resolve-migration-dir! migration-dir)
+        migratus-dir (migratus-migration-dir migration-dir)
         started (System/currentTimeMillis)]
     (logging/info! logger :migration_started {:migration_dir resolved-dir})
     (try
       (verify-connection! datasource)
-      (let [result (migratus/migrate (migratus-config datasource resolved-dir))]
+      (let [result (migratus/migrate (migratus-config datasource migratus-dir))]
         (logging/info! logger :migration_completed
                        {:migration_dir resolved-dir
                         :duration_ms (- (System/currentTimeMillis) started)
@@ -70,12 +80,13 @@
 (defn rollback!
   [{:keys [datasource migration-dir logger] :as opts}]
   (let [resolved-dir (resolve-migration-dir! migration-dir)
+        migratus-dir (migratus-migration-dir migration-dir)
         started (System/currentTimeMillis)]
     (logging/info! logger :migration_started
                    {:migration_dir resolved-dir :operation "rollback"})
     (try
       (verify-connection! datasource)
-      (let [result (migratus/rollback (migratus-config datasource resolved-dir))]
+      (let [result (migratus/rollback (migratus-config datasource migratus-dir))]
         (logging/info! logger :migration_completed
                        {:migration_dir resolved-dir
                         :duration_ms (- (System/currentTimeMillis) started)

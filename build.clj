@@ -9,7 +9,7 @@
 (def version "0.1.0-SNAPSHOT")
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
-(def uber-file (format "target/%s-%s-standalone.jar" (name lib) version))
+(def uber-file "target/tokentaper.jar")
 
 (defn clean [_]
   (b/delete {:path "target"}))
