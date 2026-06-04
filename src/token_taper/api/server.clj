@@ -7,7 +7,8 @@
    [reitit.ring :as ring]
    [token-taper.api.middleware :as middleware]
    [token-taper.api.response :as response]
-   [token-taper.api.routes :as routes])
+   [token-taper.api.routes :as routes]
+   [token-taper.observability.http-metrics :as http-metrics])
   (:import
    (org.eclipse.jetty.server Server Connector)))
 
@@ -22,16 +23,18 @@
                                 :message "Method not allowed"}))
 
 (defn handler
-  [opts]
-  (-> (ring/ring-handler
-       (routes/router opts)
-       (ring/routes
-        (ring/create-default-handler
-         {:not-found not-found-handler
-          :method-not-allowed method-not-allowed-handler})))
-      middleware/wrap-basic-headers
-      middleware/wrap-exception
-      middleware/wrap-request-id))
+  [{:keys [metrics] :as opts}]
+  (let [ring-handler (ring/ring-handler
+                      (routes/router opts)
+                      (ring/routes
+                       (ring/create-default-handler
+                        {:not-found not-found-handler
+                         :method-not-allowed method-not-allowed-handler})))]
+    (-> ring-handler
+        middleware/wrap-basic-headers
+        middleware/wrap-exception
+        (cond-> metrics (http-metrics/wrap-http-metrics metrics))
+        middleware/wrap-request-id)))
 
 (defn- bound-port
   [^Server server]

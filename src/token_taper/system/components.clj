@@ -6,7 +6,8 @@
    [integrant.core :as ig]
    [token-taper.api.server :as http-server]
    [token-taper.api.system-info :as system-info]
-   [token-taper.db.datasource :as datasource]))
+   [token-taper.db.datasource :as datasource]
+   [token-taper.observability.metrics :as observability-metrics]))
 
 (defmethod ig/init-key :token-taper/app
   [_ config]
@@ -32,15 +33,28 @@
   [_ _]
   nil)
 
+(defmethod ig/init-key :token-taper.observability/metrics
+  [_ {:keys [app datasource health-config git-sha]}]
+  (observability-metrics/create-registry
+   {:app app
+    :datasource datasource
+    :health-config health-config
+    :git-sha git-sha}))
+
+(defmethod ig/halt-key! :token-taper.observability/metrics
+  [_ _]
+  nil)
+
 (defmethod ig/init-key :token-taper/http-server
-  [_ {:keys [config app datasource loaded-config health-config]}]
+  [_ {:keys [config app datasource loaded-config health-config metrics]}]
   (let [info (system-info/build app)
         health-system {:app app
                        :config loaded-config
                        :datasource datasource
                        :health-config (or health-config {})}]
     (-> (http-server/start-server! config {:system-info info
-                                           :health-system health-system})
+                                           :health-system health-system
+                                           :metrics metrics})
         (assoc :status :started))))
 
 (defmethod ig/halt-key! :token-taper/http-server

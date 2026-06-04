@@ -16,6 +16,7 @@ HTTP endpoints:
 |--------|------|-------------|
 | GET | `/health/live` | Liveness (process alive; no DB checks) |
 | GET | `/health/ready` | Readiness (config, system, PostgreSQL, migrations) |
+| GET | `/metrics` | Prometheus metrics (text exposition) |
 | GET | `/v1/system/info` | Service metadata |
 
 Health endpoints return **flat JSON** (not the `{data, error}` envelope used by `/v1/*`).
@@ -26,7 +27,16 @@ Health endpoints return **flat JSON** (not the `{data, error}` envelope used by 
 ```bash
 curl -i http://localhost:8080/health/live
 curl -i http://localhost:8080/health/ready
+curl -i http://localhost:8080/metrics
 curl -i http://localhost:8080/v1/system/info
+```
+
+Prometheus metrics (`GET /metrics`) return **plain text** (`text/plain; version=0.0.4`), not JSON. Metric names use the `tokentaper_` prefix (for example `tokentaper_uptime_seconds`, `tokentaper_http_requests_total`, `tokentaper_database_ready`). Optional `TOKEN_TAPER_GIT_SHA` sets the `git_sha` label on `tokentaper_build_info`.
+
+```bash
+curl -s http://localhost:8080/metrics | grep tokentaper_uptime_seconds
+curl -s http://localhost:8080/metrics | grep tokentaper_http_requests_total
+curl -s http://localhost:8080/metrics | grep tokentaper_database_ready
 ```
 
 Optional: `TOKEN_TAPER_HEALTH_DATABASE_TIMEOUT_MS` (default `1000`) bounds readiness DB query time.
