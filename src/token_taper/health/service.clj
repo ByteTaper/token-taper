@@ -4,7 +4,8 @@
 (ns token-taper.health.service
   (:require
    [token-taper.db.health :as db-health]
-   [token-taper.health.checks :as checks]))
+   [token-taper.health.checks :as checks]
+   [token-taper.observability.logging :as logging]))
 
 (def default-health-config
   {:database-timeout-ms 1000
@@ -22,18 +23,13 @@
   health-service-name)
 
 (defn log-readiness-failure!
-  [app check-name check-result duration-ms]
-  (when-not (checks/ok? check-result)
-    (println
-     (pr-str
-      {:event "readiness_check_failed"
-       :service (service-name app)
-       :version (:service-version app)
-       :env (:environment app)
-       :check (name check-name)
-       :status (name (:status check-result))
-       :reason (some-> (:reason check-result) name)
-       :duration_ms duration-ms}))))
+  [logger check-name check-result duration-ms]
+  (when (and logger (not (checks/ok? check-result)))
+    (logging/warn! logger :database_readiness_failed
+                   {:check (name check-name)
+                    :status (name (:status check-result))
+                    :reason (some-> (:reason check-result) name)
+                    :duration_ms duration-ms})))
 
 (defn- config-check
   [{:keys [config]}]
@@ -58,15 +54,16 @@
       (checks/error? db) (checks/unknown :database-unreachable)
       (checks/unknown? db) db
       :else (db-health/migrations-ready? datasource
-                                          {:timeout-ms (:database-timeout-ms health-config)}))))
+                                         {:timeout-ms (:database-timeout-ms health-config)}))))
 
 (defn- run-check
-  [app check-name f health-system]
-  (let [started (System/currentTimeMillis)
+  [health-system check-name f]
+  (let [logger (:logger health-system)
+        started (System/currentTimeMillis)
         result (f health-system)
         duration-ms (- (System/currentTimeMillis) started)]
     (when-not (checks/ok? result)
-      (log-readiness-failure! app check-name result duration-ms))
+      (log-readiness-failure! logger check-name result duration-ms))
     result))
 
 (defn- checks->json
@@ -85,15 +82,14 @@
 (defn ready
   [health-system]
   (let [health-system (assoc health-system :health-config (health-config health-system))
-        app (:app health-system)
         include-details? (:include-details? (:health-config health-system))
-        checks {:config (run-check app :config config-check health-system)
-                :system (run-check app :system system-check health-system)
-                :database (run-check app :database database-check health-system)
-                :migrations (run-check app :migrations migrations-check health-system)}
+        checks {:config (run-check health-system :config config-check)
+                :system (run-check health-system :system system-check)
+                :database (run-check health-system :database database-check)
+                :migrations (run-check health-system :migrations migrations-check)}
         all-ok? (every? checks/ok? (vals checks))
         body {:status (if all-ok? "ready" "not_ready")
-              :service (service-name app)
+              :service (service-name (:app health-system))
               :checks (checks->json checks include-details?)}]
     {:http-status (if all-ok? 200 503)
      :body body}))

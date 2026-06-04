@@ -23,7 +23,7 @@
                                 :message "Method not allowed"}))
 
 (defn handler
-  [{:keys [metrics] :as opts}]
+  [{:keys [metrics logger] :as opts}]
   (let [ring-handler (ring/ring-handler
                       (routes/router opts)
                       (ring/routes
@@ -32,8 +32,9 @@
                          :method-not-allowed method-not-allowed-handler})))]
     (-> ring-handler
         middleware/wrap-basic-headers
-        middleware/wrap-exception
         (cond-> metrics (http-metrics/wrap-http-metrics metrics))
+        (middleware/wrap-request-logging logger)
+        (middleware/wrap-exception logger)
         middleware/wrap-request-id)))
 
 (defn- bound-port

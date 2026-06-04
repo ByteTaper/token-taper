@@ -6,7 +6,8 @@
    [clojure.test :refer [deftest is]]
    [ring.mock.request :as mock]
    [token-taper.api.server :as server]
-   [token-taper.observability.metrics :as metrics]))
+   [token-taper.observability.metrics :as metrics]
+   [token-taper.test-support.logging :as log-support]))
 
 (def ^:private system-info
   {:service "token-taper"
@@ -30,9 +31,11 @@
     :git-sha "unknown"}))
 
 (defn- app []
-  (server/handler {:system-info system-info
-                   :health-system health-system
-                   :metrics (metrics-component)}))
+  (let [logger (log-support/test-logger)]
+    (server/handler {:system-info system-info
+                     :health-system (assoc health-system :logger logger)
+                     :metrics (assoc (metrics-component) :logger logger)
+                     :logger logger})))
 
 (deftest metrics-endpoint-returns-200-and-text-plain-test
   (let [response ((app) (mock/request :get "/metrics"))]

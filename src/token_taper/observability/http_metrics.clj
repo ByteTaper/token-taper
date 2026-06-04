@@ -4,19 +4,8 @@
 (ns token-taper.observability.http-metrics
   (:require
    [clojure.string :as str]
-   [token-taper.observability.metrics :as metrics]))
-
-(def known-routes
-  #{"/health/live"
-    "/health/ready"
-    "/metrics"
-    "/v1/system/info"})
-
-(defn route-label
-  [request _response]
-  (or (get-in request [:reitit.core/match :template])
-      (known-routes (:uri request))
-      "unknown"))
+   [token-taper.observability.metrics :as metrics]
+   [token-taper.observability.route :as route]))
 
 (defn wrap-http-metrics
   [handler metrics-component]
@@ -25,7 +14,7 @@
           response (handler request)
           duration-s (/ (- (System/nanoTime) start) 1e9)
           method (-> request :request-method name str/upper-case)
-          route (route-label request response)
+          route (route/route-label request)
           status (str (or (:status response) 500))]
       (metrics/record-http-request! metrics-component
                                     {:method method

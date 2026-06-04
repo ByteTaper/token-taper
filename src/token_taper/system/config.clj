@@ -6,7 +6,8 @@
    [aero.core :as aero]
    [clojure.java.io :as io]
    [clojure.string :as str]
-   [integrant.core :as ig]))
+   [integrant.core :as ig]
+   [token-taper.observability.logging :as logging]))
 
 (defmethod aero.core/reader 'ig/ref
   ([_ _tag value]
@@ -61,6 +62,13 @@
   ([]
    (load-config (config-path)))
   ([path]
-   (-> path
-       load-integrant-config
-       validate-config!)))
+   (try
+     (-> path
+         load-integrant-config
+         validate-config!)
+     (catch Throwable t
+       (let [ctx (logging/bootstrap-context)]
+         (logging/error! ctx :config_load_failed
+                         (merge (logging/build-error-fields ctx t)
+                                {:config_path path})))
+       (throw t)))))

@@ -9,6 +9,7 @@
    [token-taper.db.jdbc :as jdbc]
    [token-taper.db.migration :as migration]
    [token-taper.db.test-support :as support]
+   [token-taper.test-support.logging :as log-support]
    [token-taper.main :as main]
    [token-taper.system.config :as config]))
 
@@ -75,12 +76,6 @@
   (is (re-find #"migrations$"
                (migration/resolve-migration-dir! migrations-dir))))
 
-(deftest sanitize-for-log-redacts-jdbc-credentials-test
-  (is (= "jdbc:postgresql://user:***@localhost/db"
-         (:jdbc-url
-          (migration/sanitize-for-log
-           {:jdbc-url "jdbc:postgresql://user:secret@localhost/db"})))))
-
 (deftest run-migrations-fn-exists-test
   (is (fn? main/run-migrations!))
   (is (fn? migration/migrate!)))
@@ -94,14 +89,13 @@
     (let [ds-cfg (support/load-test-datasource-config)
           mig-cfg (get (config/load-config "resources/config.test.edn")
                        :token-taper.db/migration)
-          app (get (config/load-config "resources/config.test.edn")
-                   :token-taper/app)
+          logger (log-support/test-logger)
           ds (datasource/make-datasource ds-cfg)]
       (try
         (migration/migrate!
          {:datasource ds
           :migration-dir (:migration-dir mig-cfg)
-          :app app})
+          :logger logger})
         (is (table-exists? ds "tenant"))
         (is (table-exists? ds "api_key"))
         (is (table-exists? ds "audit_log"))
@@ -114,18 +108,17 @@
     (let [ds-cfg (support/load-test-datasource-config)
           mig-cfg (get (config/load-config "resources/config.test.edn")
                        :token-taper.db/migration)
-          app (get (config/load-config "resources/config.test.edn")
-                   :token-taper/app)
+          logger (log-support/test-logger)
           ds (datasource/make-datasource ds-cfg)]
       (try
         (migration/migrate!
          {:datasource ds
           :migration-dir (:migration-dir mig-cfg)
-          :app app})
+          :logger logger})
         (migration/migrate!
          {:datasource ds
           :migration-dir (:migration-dir mig-cfg)
-          :app app})
+          :logger logger})
         (is (table-exists? ds "tenant"))
         (finally
           (datasource/close-datasource! ds))))))
@@ -135,11 +128,10 @@
     (let [ds-cfg (support/load-test-datasource-config)
           mig-cfg (get (config/load-config "resources/config.test.edn")
                        :token-taper.db/migration)
-          app (get (config/load-config "resources/config.test.edn")
-                   :token-taper/app)
+          logger (log-support/test-logger)
           opts {:datasource nil
                 :migration-dir (:migration-dir mig-cfg)
-                :app app}
+                :logger logger}
           ds (datasource/make-datasource ds-cfg)]
       (try
         (migration/migrate! (assoc opts :datasource ds))

@@ -9,6 +9,17 @@
   :join? false
   :stop-timeout-ms #long #or [#env TOKEN_TAPER_HTTP_STOP_TIMEOUT_MS 5000]}
 
+ :token-taper.logging/config
+ {:level #or [#env TOKEN_TAPER_LOG_LEVEL :info]
+  :format #or [#env TOKEN_TAPER_LOG_FORMAT :json]
+  :include-stacktrace? true
+  :redact-fields ["authorization" "api_key" "x-api-key" "password" "secret" "token"
+                  "database_url" "jdbc_url" "cookie" "set-cookie"]}
+
+ :token-taper.logging/context
+ {:app #ig/ref :token-taper/app
+  :logging-config #ig/ref :token-taper.logging/config}
+
  :token-taper.observability/metrics
  {:app #ig/ref :token-taper/app
   :datasource #ig/ref :token-taper.db/datasource
@@ -21,7 +32,8 @@
   :datasource #ig/ref :token-taper.db/datasource
   :loaded-config #ig/ref :token-taper/config
   :health-config #ig/ref :token-taper.health/checks
-  :metrics #ig/ref :token-taper.observability/metrics}
+  :metrics #ig/ref :token-taper.observability/metrics
+  :logger #ig/ref :token-taper.logging/context}
 
  :token-taper.health/checks
  {:database-timeout-ms #long #or [#env TOKEN_TAPER_HEALTH_DATABASE_TIMEOUT_MS 1000]

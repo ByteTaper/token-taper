@@ -8,7 +8,8 @@
    [ring.mock.request :as mock]
    [token-taper.api.server :as server]
    [token-taper.health.service :as health-service]
-   [token-taper.observability.metrics :as metrics]))
+   [token-taper.observability.metrics :as metrics]
+   [token-taper.test-support.logging :as log-support]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn keyword}))
 
@@ -34,10 +35,15 @@
     :health-config (:health-config health-system)
     :git-sha "unknown"}))
 
+(defn- handler-opts []
+  (let [logger (log-support/test-logger)]
+    {:system-info system-info
+     :health-system (assoc health-system :logger logger)
+     :metrics (assoc (metrics-component) :logger logger)
+     :logger logger}))
+
 (defn- app []
-  (server/handler {:system-info system-info
-                   :health-system health-system
-                   :metrics (metrics-component)}))
+  (server/handler (handler-opts)))
 
 (defn- json-body [response]
   (json/read-value (:body response) mapper))

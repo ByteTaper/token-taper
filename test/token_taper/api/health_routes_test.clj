@@ -11,7 +11,8 @@
    [token-taper.db.migration :as migration]
    [token-taper.db.test-support :as support]
    [token-taper.health.service :as health-service]
-   [token-taper.system.config :as config]))
+   [token-taper.system.config :as config]
+   [token-taper.test-support.logging :as log-support]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn keyword}))
 
@@ -82,7 +83,7 @@
       (try
         (migration/migrate! {:datasource ds
                              :migration-dir (:migration-dir mig-cfg)
-                             :app app-cfg})
+                             :logger (log-support/test-logger)})
         (let [response ((app (health-system ds)) (mock/request :get "/health/ready"))
               body (json-body response)]
           (is (= 200 (:status response)))
