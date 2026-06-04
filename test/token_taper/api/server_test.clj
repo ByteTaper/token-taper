@@ -15,14 +15,27 @@
    :version "0.1.0-SNAPSHOT"
    :environment "test"})
 
+(def ^:private health-system
+  {:app {:service-name "token-taper"
+         :service-version "0.1.0-SNAPSHOT"
+         :environment "test"
+         :status :started}
+   :config {:status :loaded}
+   :datasource (Object.)
+   :health-config {:database-timeout-ms 1000}})
+
+(defn- handler-opts []
+  {:system-info system-info
+   :health-system health-system})
+
 (deftest handler-without-jetty-test
-  (let [response ((server/handler {:system-info system-info})
+  (let [response ((server/handler (handler-opts))
                   (mock/request :get "/health/live"))]
     (is (= 200 (:status response)))))
 
 (deftest start-and-stop-server-test
   (let [http-config {:host "127.0.0.1" :port 0 :join? false :stop-timeout-ms 1000}
-        component (server/start-server! http-config {:system-info system-info})]
+        component (server/start-server! http-config (handler-opts))]
     (try
       (is (pos? (:port component)))
       (is (some? (:server component)))

@@ -6,7 +6,8 @@
    [clojure.test :refer [deftest is]]
    [jsonista.core :as json]
    [ring.mock.request :as mock]
-   [token-taper.api.server :as server]))
+   [token-taper.api.server :as server]
+   [token-taper.health.service :as health-service]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn keyword}))
 
@@ -16,8 +17,18 @@
    :environment "test"
    :runtime {:jvm "21" :clojure "1.12.0"}})
 
+(def ^:private health-system
+  {:app {:service-name "token-taper"
+         :service-version "0.1.0-SNAPSHOT"
+         :environment "test"
+         :status :started}
+   :config {:status :loaded}
+   :datasource (Object.)
+   :health-config {:database-timeout-ms 1000}})
+
 (defn- app []
-  (server/handler {:system-info system-info}))
+  (server/handler {:system-info system-info
+                   :health-system health-system}))
 
 (defn- json-body [response]
   (json/read-value (:body response) mapper))
@@ -26,15 +37,19 @@
   (let [response ((app) (mock/request :get "/health/live"))
         body (json-body response)]
     (is (= 200 (:status response)))
-    (is (= "ok" (get-in body [:data :status])))
+    (is (= "alive" (:status body)))
     (is (string? (get-in response [:headers "x-request-id"])))))
 
 (deftest health-ready-test
-  (let [response ((app) (mock/request :get "/health/ready"))
-        body (json-body response)]
-    (is (= 200 (:status response)))
-    (is (= "ready" (get-in body [:data :status])))
-    (is (= "ok" (get-in body [:data :checks :http])))))
+  (with-redefs [health-service/ready (constantly {:http-status 200
+                                                  :body {:status "ready"
+                                                         :service "tokentaper"
+                                                         :checks {:config {:status "ok"}}}})]
+    (let [response ((app) (mock/request :get "/health/ready"))
+          body (json-body response)]
+      (is (= 200 (:status response)))
+      (is (= "ready" (:status body)))
+      (is (= "ok" (get-in body [:checks :config :status]))))))
 
 (deftest system-info-route-test
   (let [response ((app) (mock/request :get "/v1/system/info"))

@@ -24,10 +24,23 @@
   [_ _]
   nil)
 
+(defmethod ig/init-key :token-taper.health/checks
+  [_ config]
+  config)
+
+(defmethod ig/halt-key! :token-taper.health/checks
+  [_ _]
+  nil)
+
 (defmethod ig/init-key :token-taper/http-server
-  [_ {:keys [config app]}]
-  (let [info (system-info/build app)]
-    (-> (http-server/start-server! config {:system-info info})
+  [_ {:keys [config app datasource loaded-config health-config]}]
+  (let [info (system-info/build app)
+        health-system {:app app
+                       :config loaded-config
+                       :datasource datasource
+                       :health-config (or health-config {})}]
+    (-> (http-server/start-server! config {:system-info info
+                                           :health-system health-system})
         (assoc :status :started))))
 
 (defmethod ig/halt-key! :token-taper/http-server

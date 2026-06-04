@@ -11,7 +11,14 @@
 
  :token-taper/http-server
  {:config #ig/ref :token-taper/http
-  :app #ig/ref :token-taper/app}
+  :app #ig/ref :token-taper/app
+  :datasource #ig/ref :token-taper.db/datasource
+  :loaded-config #ig/ref :token-taper/config
+  :health-config #ig/ref :token-taper.health/checks}
+
+ :token-taper.health/checks
+ {:database-timeout-ms 1000
+  :include-details? true}
 
  :token-taper.db/datasource
  {:jdbc-url #or [#env TOKEN_TAPER_TEST_DATABASE_URL
