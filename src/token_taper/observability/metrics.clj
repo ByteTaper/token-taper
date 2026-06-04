@@ -68,6 +68,9 @@
                    :health-config (or health-config {})
                    :git-sha git-sha}]
     (i/set registry :tokentaper_build_info (build-info-labels component) 1)
+    ;; Seed one series so Prometheus exposition includes the HTTP counter before first request.
+    (i/inc registry :tokentaper_http_requests_total
+         {:method "GET" :route "/health/live" :status "200"})
     component))
 
 (defn uptime-seconds

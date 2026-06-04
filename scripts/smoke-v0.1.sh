@@ -69,9 +69,22 @@ assert_status "/health/ready" "200"
 assert_status "/metrics" "200"
 assert_status "/v1/system/info" "200"
 
-assert_body_contains "/metrics" "tokentaper_uptime_seconds"
-assert_body_contains "/metrics" "tokentaper_http_requests_total"
-assert_body_contains "/metrics" "tokentaper_database_ready"
+for path in /health/live /health/ready /v1/system/info /metrics; do
+  curl -sf "${BASE_URL}${path}" >/dev/null
+done
+
+METRICS_BODY="$(curl -sf "${BASE_URL}/metrics")"
+printf '%s' "${METRICS_BODY}" | grep -Fq "tokentaper_uptime_seconds" \
+  || fail "Expected /metrics body to contain: tokentaper_uptime_seconds"
+log "OK /metrics contains tokentaper_uptime_seconds"
+
+printf '%s' "${METRICS_BODY}" | grep -Fq "tokentaper_http_requests_total" \
+  || fail "Expected /metrics body to contain: tokentaper_http_requests_total"
+log "OK /metrics contains tokentaper_http_requests_total"
+
+printf '%s' "${METRICS_BODY}" | grep -Fq "tokentaper_database_ready" \
+  || fail "Expected /metrics body to contain: tokentaper_database_ready"
+log "OK /metrics contains tokentaper_database_ready"
 
 assert_body_contains "/v1/system/info" "tokentaper"
 
