@@ -101,7 +101,57 @@ Build uberjar:
 
 ```bash
 clojure -T:build uber
+# output: target/tokentaper.jar
 ```
+
+## Docker
+
+Run TokenTaper with PostgreSQL via Docker Compose (local dev credentials only).
+
+Prerequisites: Docker with Compose v2.
+
+```bash
+cp .env.example .env
+docker compose up -d postgres          # or: docker-compose (see Makefile DOCKER_COMPOSE)
+docker compose run --rm tokentaper-api migrate
+docker compose up --build -d tokentaper-api
+```
+
+If port `5432` is already in use on the host, set `POSTGRES_PORT=5433` in `.env` (or export it) before starting Postgres.
+
+Verify from the host:
+
+```bash
+curl -i http://localhost:8080/health/live
+curl -i http://localhost:8080/health/ready
+curl -s http://localhost:8080/metrics | grep tokentaper_uptime_seconds
+curl -s http://localhost:8080/v1/system/info | jq .service
+./scripts/smoke-v0.1.sh
+```
+
+`/health/ready` returns `503` until migrations have been applied.
+
+The `tokentaper-api` service defines a container healthcheck (`GET /health/live` via `curl` inside the image). The runtime image installs `curl` only for this probe.
+
+Logs (NDJSON on stderr):
+
+```bash
+docker compose logs tokentaper-api
+```
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+Reset PostgreSQL data:
+
+```bash
+docker compose down -v
+```
+
+Environment variables use the `TOKEN_TAPER_*` prefix (see `.env.example`). Compose loads `.env` from the project root for substitution when present.
 
 Optional configuration overrides:
 
@@ -111,7 +161,7 @@ TOKEN_TAPER_ENV=local TOKEN_TAPER_HTTP_PORT=8080 clojure -M:run api
 TOKEN_TAPER_CONFIG=resources/config.local.edn clojure -M:run api
 ```
 
-Equivalent `make` targets (`run`/`api`, `migrate`, `test`, `test-integration`, `fmt-check`, `fmt`/`fmt-fix`, `uber`/`build`, `clean`) wrap the same commands.
+Equivalent `make` targets (`run`/`api`, `migrate`, `test`, `test-integration`, `fmt-check`, `fmt`/`fmt-fix`, `uber`/`build`, `clean`, `docker-build`, `docker-up`, `docker-migrate`, `docker-down`, `docker-smoke`) wrap the same commands.
 
 ## License
 

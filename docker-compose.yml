@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Haluan Irsad
+# SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tokentaper}
+      POSTGRES_USER: ${POSTGRES_USER:-tokentaper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tokentaper}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - tokentaper-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  tokentaper-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TOKEN_TAPER_ENV: ${TOKEN_TAPER_ENV:-local}
+      TOKEN_TAPER_HTTP_PORT: ${TOKEN_TAPER_HTTP_PORT:-8080}
+      TOKEN_TAPER_HTTP_HOST: ${TOKEN_TAPER_HTTP_HOST:-0.0.0.0}
+      TOKEN_TAPER_DATABASE_URL: ${TOKEN_TAPER_DATABASE_URL:-jdbc:postgresql://postgres:5432/tokentaper}
+      TOKEN_TAPER_DATABASE_USER: ${TOKEN_TAPER_DATABASE_USER:-tokentaper}
+      TOKEN_TAPER_DATABASE_PASSWORD: ${TOKEN_TAPER_DATABASE_PASSWORD:-tokentaper}
+      TOKEN_TAPER_LOG_LEVEL: ${TOKEN_TAPER_LOG_LEVEL:-info}
+      TOKEN_TAPER_LOG_FORMAT: ${TOKEN_TAPER_LOG_FORMAT:-json}
+      TOKEN_TAPER_MIGRATION_DIR: ${TOKEN_TAPER_MIGRATION_DIR:-migrations}
+    ports:
+      - "8080:8080"
+    command: ["api"]
+    # JRE image has no wget/curl by default; Dockerfile installs curl minimally for this probe.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8080/health/live >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  tokentaper-postgres-data:
