@@ -53,6 +53,14 @@
        (catch Exception _
          (checks/unknown :database-unreachable))))))
 
+(defn database-ready-value
+  ([datasource]
+   (database-ready-value datasource {}))
+  ([datasource opts]
+   (if (checks/ok? (database-ready? datasource opts))
+     1
+     0)))
+
 (defn check-ready
   [datasource]
   (let [check (database-ready? datasource)]

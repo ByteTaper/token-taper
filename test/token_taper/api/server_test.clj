@@ -8,6 +8,7 @@
    [token-taper.api.server :as server]
    [token-taper.system.components]
    [token-taper.system.config :as config]
+   [token-taper.observability.metrics :as metrics]
    [token-taper.system.integrant :as system]))
 
 (def ^:private system-info
@@ -24,9 +25,17 @@
    :datasource (Object.)
    :health-config {:database-timeout-ms 1000}})
 
+(defn- metrics-component []
+  (metrics/create-registry
+   {:app (:app health-system)
+    :datasource (:datasource health-system)
+    :health-config (:health-config health-system)
+    :git-sha "unknown"}))
+
 (defn- handler-opts []
   {:system-info system-info
-   :health-system health-system})
+   :health-system health-system
+   :metrics (metrics-component)})
 
 (deftest handler-without-jetty-test
   (let [response ((server/handler (handler-opts))

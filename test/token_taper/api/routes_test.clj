@@ -7,7 +7,8 @@
    [jsonista.core :as json]
    [ring.mock.request :as mock]
    [token-taper.api.server :as server]
-   [token-taper.health.service :as health-service]))
+   [token-taper.health.service :as health-service]
+   [token-taper.observability.metrics :as metrics]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn keyword}))
 
@@ -26,9 +27,17 @@
    :datasource (Object.)
    :health-config {:database-timeout-ms 1000}})
 
+(defn- metrics-component []
+  (metrics/create-registry
+   {:app (:app health-system)
+    :datasource (:datasource health-system)
+    :health-config (:health-config health-system)
+    :git-sha "unknown"}))
+
 (defn- app []
   (server/handler {:system-info system-info
-                   :health-system health-system}))
+                   :health-system health-system
+                   :metrics (metrics-component)}))
 
 (defn- json-body [response]
   (json/read-value (:body response) mapper))
