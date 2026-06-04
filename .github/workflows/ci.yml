@@ -40,7 +40,7 @@ jobs:
           java-version: "21"
 
       - name: Install Clojure CLI
-        uses: DeLaGuardo/setup-clojure@13.4.0
+        uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
 
@@ -77,7 +77,9 @@ jobs:
       - name: Start API
         run: docker compose up -d --wait tokentaper-api
 
-      - name: Run smoke checks
+      - name: Run v0.1 smoke test
+        env:
+          BASE_URL: http://localhost:8080
         run: ./scripts/smoke-v0.1.sh
 
       - name: Show compose logs on failure
