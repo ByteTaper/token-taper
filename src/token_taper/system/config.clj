@@ -5,6 +5,7 @@
   (:require
    [aero.core :as aero]
    [clojure.java.io :as io]
+   [clojure.string :as str]
    [integrant.core :as ig]))
 
 (defmethod aero.core/reader 'ig/ref
@@ -21,12 +22,25 @@
   [m k]
   (contains? m k))
 
+(defn- require-non-blank!
+  [config path]
+  (let [value (get-in config path)]
+    (when (or (nil? value)
+              (and (string? value) (str/blank? value)))
+      (throw (ex-info "Missing or blank required config value"
+                      {:path path
+                       :value value})))))
+
 (defn validate-config!
   [config]
-  (doseq [k [:token-taper/app :token-taper/http :token-taper.db/datasource]]
+  (doseq [k [:token-taper/app
+             :token-taper/http
+             :token-taper.db/datasource
+             :token-taper.db/migration]]
     (when-not (required-key? config k)
       (throw (ex-info "Missing required config key"
                       {:missing-key k}))))
+  (require-non-blank! config [:token-taper.db/migration :migration-dir])
   config)
 
 (defn- classpath-resource-name [path]

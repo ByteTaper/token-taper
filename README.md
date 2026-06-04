@@ -24,11 +24,15 @@ curl -i http://localhost:8080/health/ready
 curl -i http://localhost:8080/v1/system/info
 ```
 
-Run placeholder migration mode:
+Run database migrations (Migratus; does not start the HTTP server):
 
 ```bash
 clojure -M:run migrate
+# or: clojure -M:migrate
+# or: make migrate
 ```
+
+Migrations live in [`migrations/`](migrations/) at the project root. Run from the repo root (or set `TOKEN_TAPER_MIGRATION_DIR`). Uses the same `TOKEN_TAPER_DATABASE_*` settings as the API (`resources/config.edn`). The uberjar expects `migrations/` on the working directory or `TOKEN_TAPER_MIGRATION_DIR` when you run `java -jar … migrate`.
 
 Run tests (unit tests only; PostgreSQL not required):
 
@@ -45,7 +49,9 @@ TOKEN_TAPER_TEST_DATABASE_PASSWORD="token_taper" \
 clojure -M:test-integration
 ```
 
-Database configuration uses `TOKEN_TAPER_DATABASE_*` environment variables (see `resources/config.edn`). The connection pool is created on startup but does not fail fast if PostgreSQL is unreachable until the first query.
+Integration tests include migration smoke checks (`^:integration` in `test/token_taper/db/migration_test.clj`) when `TOKEN_TAPER_TEST_DATABASE_URL` is set.
+
+Database configuration uses `TOKEN_TAPER_DATABASE_*` environment variables (see `resources/config.edn`). The connection pool is created on startup but does not fail fast if PostgreSQL is unreachable until the first query. Migration mode verifies connectivity before applying SQL.
 
 Check Clojure formatting ([cljfmt](https://github.com/weavejester/cljfmt)):
 

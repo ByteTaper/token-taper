@@ -11,6 +11,9 @@
  {:config #ig/ref :token-taper/http
   :app #ig/ref :token-taper/app}
 
+ :token-taper.db/migration
+ {:migration-dir "migrations"}
+
  :token-taper.db/datasource
  {:jdbc-url "jdbc:postgresql://localhost:5432/token_taper"
   :username "token_taper"

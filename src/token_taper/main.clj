@@ -4,6 +4,8 @@
 (ns token-taper.main
   (:gen-class)
   (:require
+   [token-taper.db.datasource :as datasource]
+   [token-taper.db.migration :as migration]
    [token-taper.system.components]
    [token-taper.system.config :as config]
    [token-taper.system.integrant :as system]))
@@ -27,16 +29,27 @@
     @done))
 
 (defn run-migrations! []
-  (let [cfg (config/load-config)]
-    (println "TokenTaper migration mode placeholder started")
-    (println "No migrations are defined; config environment:"
-             (get-in cfg [:token-taper/app :environment]))))
+  (let [cfg (config/load-config)
+        app (:token-taper/app cfg)
+        mig-cfg (:token-taper.db/migration cfg)
+        ds (datasource/make-datasource (:token-taper.db/datasource cfg))]
+    (try
+      (migration/run-migrations!
+       {:datasource ds
+        :migration-dir (:migration-dir mig-cfg)
+        :app app})
+      (catch Exception e
+        (binding [*out* *err*]
+          (println "Migration failed:" (.getMessage e)))
+        (System/exit 1))
+      (finally
+        (datasource/close-datasource! ds)))))
 
 (defn usage []
   (str "Usage: token-taper <mode>\n\n"
        "Modes:\n"
        "  api      Start API service\n"
-       "  migrate  Run migration placeholder\n"))
+       "  migrate  Run database migrations (Migratus)\n"))
 
 (defn -main [& args]
   (let [mode (or (first args) "api")]
