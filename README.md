@@ -104,6 +104,20 @@ clojure -T:build uber
 # output: target/tokentaper.jar
 ```
 
+## CI
+
+GitHub Actions workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). On pull requests and pushes to `main`, `core-service-foundation`, and `feat/**` / `fix/**` / `chore/**` branches, it runs dependency resolution, unit tests, uberjar build, Docker image build, and Docker Compose smoke checks. No repository secrets are required.
+
+Local equivalents:
+
+```bash
+make test          # clojure -M:test (unit tests; excludes ^:integration)
+make build         # clojure -T:build uber
+make docker-build  # docker compose build
+```
+
+Integration tests (`clojure -M:test-integration` or `make test-integration`) require a PostgreSQL test database (`TOKEN_TAPER_TEST_DATABASE_URL`) and are not run in CI yet.
+
 ## Docker
 
 Run TokenTaper with PostgreSQL via Docker Compose (local dev credentials only).
