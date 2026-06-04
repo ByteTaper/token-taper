@@ -19,16 +19,20 @@ HTTP endpoints:
 | GET | `/metrics` | Prometheus metrics (text exposition) |
 | GET | `/v1/system/info` | Service metadata |
 
-Health endpoints return **flat JSON** (not the `{data, error}` envelope used by `/v1/*`).
+**Health** (`/health/live`, `/health/ready`) and **system info** (`/v1/system/info`) return **flat JSON** with no `{data, error}` envelope. Future `/v1/*` business APIs may use the envelope pattern.
 
 - **Live** — always `200` while the HTTP server is running; does not check PostgreSQL.
 - **Ready** — `200` when config, system, database, and `schema_migrations` checks pass; `503` otherwise.
+- **System info** — safe service, build, and runtime metadata (`service`, `name`, `version`, `environment`, `build`, `runtime`). No secrets or raw config.
+
+Build metadata defaults come from [`resources/build-info.edn`](resources/build-info.edn). Override the deployed git SHA with `TOKEN_TAPER_GIT_SHA` (also used for Prometheus `tokentaper_build_info`). Application version follows `TOKEN_TAPER_VERSION` / config.
 
 ```bash
 curl -i http://localhost:8080/health/live
 curl -i http://localhost:8080/health/ready
 curl -i http://localhost:8080/metrics
 curl -i http://localhost:8080/v1/system/info
+curl -s http://localhost:8080/v1/system/info | jq .service,.version,.runtime.jvm
 ```
 
 Prometheus metrics (`GET /metrics`) return **plain text** (`text/plain; version=0.0.4`), not JSON. Metric names use the `tokentaper_` prefix (for example `tokentaper_uptime_seconds`, `tokentaper_http_requests_total`, `tokentaper_database_ready`). Optional `TOKEN_TAPER_GIT_SHA` sets the `git_sha` label on `tokentaper_build_info`.

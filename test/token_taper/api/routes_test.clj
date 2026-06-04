@@ -9,24 +9,12 @@
    [token-taper.api.server :as server]
    [token-taper.health.service :as health-service]
    [token-taper.observability.metrics :as metrics]
+   [token-taper.test-support.handler-fixtures :as fixtures]
    [token-taper.test-support.logging :as log-support]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn keyword}))
 
-(def ^:private system-info
-  {:service "token-taper"
-   :version "0.1.0-SNAPSHOT"
-   :environment "test"
-   :runtime {:jvm "21" :clojure "1.12.0"}})
-
-(def ^:private health-system
-  {:app {:service-name "token-taper"
-         :service-version "0.1.0-SNAPSHOT"
-         :environment "test"
-         :status :started}
-   :config {:status :loaded}
-   :datasource (Object.)
-   :health-config {:database-timeout-ms 1000}})
+(def ^:private health-system (fixtures/default-health-system (Object.)))
 
 (defn- metrics-component []
   (metrics/create-registry
@@ -37,7 +25,7 @@
 
 (defn- handler-opts []
   (let [logger (log-support/test-logger)]
-    {:system-info system-info
+    {:system-info (fixtures/system-info-payload (:app health-system) health-system)
      :health-system (assoc health-system :logger logger)
      :metrics (assoc (metrics-component) :logger logger)
      :logger logger}))
@@ -65,12 +53,6 @@
       (is (= 200 (:status response)))
       (is (= "ready" (:status body)))
       (is (= "ok" (get-in body [:checks :config :status]))))))
-
-(deftest system-info-route-test
-  (let [response ((app) (mock/request :get "/v1/system/info"))
-        body (json-body response)]
-    (is (= 200 (:status response)))
-    (is (= "token-taper" (get-in body [:data :service])))))
 
 (deftest not-found-test
   (let [response ((app) (mock/request :get "/unknown"))

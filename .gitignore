@@ -21,6 +21,7 @@ out/
 # AOT / build output
 bin/
 dist/
+build/
 build-output/
 
 

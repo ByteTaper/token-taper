@@ -7,21 +7,12 @@
    [ring.mock.request :as mock]
    [token-taper.api.server :as server]
    [token-taper.observability.metrics :as metrics]
+   [token-taper.test-support.handler-fixtures :as fixtures]
    [token-taper.test-support.logging :as log-support]))
 
-(def ^:private system-info
-  {:service "token-taper"
-   :version "0.1.0-SNAPSHOT"
-   :environment "test"})
-
 (def ^:private health-system
-  {:app {:service-name "token-taper"
-         :service-version "0.1.0-SNAPSHOT"
-         :environment "test"
-         :status :started}
-   :config {:status :loaded}
-   :datasource (Object.)
-   :health-config {:database-timeout-ms 100}})
+  (assoc (fixtures/default-health-system (Object.))
+         :health-config {:database-timeout-ms 100}))
 
 (defn- metrics-component []
   (metrics/create-registry
@@ -32,7 +23,7 @@
 
 (defn- app []
   (let [logger (log-support/test-logger)]
-    (server/handler {:system-info system-info
+    (server/handler {:system-info (fixtures/system-info-payload (:app health-system) health-system)
                      :health-system (assoc health-system :logger logger)
                      :metrics (assoc (metrics-component) :logger logger)
                      :logger logger})))

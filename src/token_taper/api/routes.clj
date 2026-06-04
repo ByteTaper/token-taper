@@ -10,8 +10,8 @@
 
 (defn system-info-handler
   [system-info]
-  (fn [request]
-    (response/ok system-info (:request-id request))))
+  (fn [_request]
+    (response/diagnostic-ok system-info)))
 
 (defn live-handler
   [health-system]

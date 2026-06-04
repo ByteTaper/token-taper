@@ -12,30 +12,22 @@
    [token-taper.db.test-support :as support]
    [token-taper.health.service :as health-service]
    [token-taper.system.config :as config]
+   [token-taper.test-support.handler-fixtures :as fixtures]
    [token-taper.test-support.logging :as log-support]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn keyword}))
 
-(def ^:private system-info
-  {:service "token-taper"
-   :version "0.1.0-SNAPSHOT"
-   :environment "test"})
-
 (defn- health-system
   ([]
-   (health-system nil))
+   (fixtures/default-health-system))
   ([datasource]
-   {:app {:service-name "token-taper"
-          :service-version "0.1.0-SNAPSHOT"
-          :environment "test"
-          :status :started}
-    :config {:status :loaded}
-    :datasource datasource
-    :health-config {:database-timeout-ms 1000}}))
+   (fixtures/default-health-system datasource)))
 
 (defn- app [health-sys]
-  (server/handler {:system-info system-info
-                   :health-system health-sys}))
+  (let [logger (log-support/test-logger)]
+    (server/handler {:system-info (fixtures/system-info-payload (:app health-sys) health-sys)
+                     :health-system (assoc health-sys :logger logger)
+                     :logger logger})))
 
 (defn- json-body [response]
   (json/read-value (:body response) mapper))
