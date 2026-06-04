@@ -10,21 +10,10 @@
    [token-taper.system.config :as config]
    [token-taper.observability.metrics :as metrics]
    [token-taper.system.integrant :as system]
+   [token-taper.test-support.handler-fixtures :as fixtures]
    [token-taper.test-support.logging :as log-support]))
 
-(def ^:private system-info
-  {:service "token-taper"
-   :version "0.1.0-SNAPSHOT"
-   :environment "test"})
-
-(def ^:private health-system
-  {:app {:service-name "token-taper"
-         :service-version "0.1.0-SNAPSHOT"
-         :environment "test"
-         :status :started}
-   :config {:status :loaded}
-   :datasource (Object.)
-   :health-config {:database-timeout-ms 1000}})
+(def ^:private health-system (fixtures/default-health-system (Object.)))
 
 (defn- metrics-component []
   (metrics/create-registry
@@ -35,7 +24,7 @@
 
 (defn- handler-opts []
   (let [logger (log-support/test-logger)]
-    {:system-info system-info
+    {:system-info (fixtures/system-info-payload (:app health-system) health-system)
      :health-system (assoc health-system :logger logger)
      :metrics (assoc (metrics-component) :logger logger)
      :logger logger}))

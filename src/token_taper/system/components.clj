@@ -5,10 +5,11 @@
   (:require
    [integrant.core :as ig]
    [token-taper.api.server :as http-server]
-   [token-taper.api.system-info :as system-info]
    [token-taper.db.datasource :as datasource]
    [token-taper.observability.logging :as logging]
-   [token-taper.observability.metrics :as observability-metrics]))
+   [token-taper.observability.metrics :as observability-metrics]
+   [token-taper.system.build :as build]
+   [token-taper.system.info :as system-info]))
 
 (defmethod ig/init-key :token-taper/app
   [_ config]
@@ -50,6 +51,14 @@
   [_ _]
   nil)
 
+(defmethod ig/init-key :token-taper.system/info
+  [_ config]
+  config)
+
+(defmethod ig/halt-key! :token-taper.system/info
+  [_ _]
+  nil)
+
 (defmethod ig/init-key :token-taper.observability/metrics
   [_ {:keys [app datasource health-config git-sha]}]
   (observability-metrics/create-registry
@@ -62,9 +71,24 @@
   [_ _]
   nil)
 
+(defn- resolve-system-info-payload
+  [app system-meta logger]
+  (let [{:keys [build-info failed? source throwable]}
+        (build/load-build-info!)]
+    (when (and failed? logger)
+      (logging/warn! logger :build_info_load_failed
+                     (merge {:source source
+                             :service "tokentaper"
+                             :version (:service-version app "unknown")
+                             :env (:environment app "unknown")}
+                            (when throwable
+                              (logging/build-error-fields logger throwable)))))
+    (system-info/build-for-app app (build/merge-overrides app build-info)
+                               :system-meta system-meta)))
+
 (defmethod ig/init-key :token-taper/http-server
-  [_ {:keys [config app datasource loaded-config health-config metrics logger]}]
-  (let [info (system-info/build app)
+  [_ {:keys [config app datasource loaded-config health-config metrics logger system-info-config]}]
+  (let [info (resolve-system-info-payload app system-info-config logger)
         health-system {:app app
                        :config loaded-config
                        :datasource datasource

@@ -18,6 +18,10 @@
  {:app #ig/ref :token-taper/app
   :logging-config #ig/ref :token-taper.logging/config}
 
+ :token-taper.system/info
+ {:service "tokentaper"
+  :name "TokenTaper"}
+
  :token-taper.observability/metrics
  {:app #ig/ref :token-taper/app
   :datasource #ig/ref :token-taper.db/datasource
@@ -31,7 +35,8 @@
   :loaded-config #ig/ref :token-taper/config
   :health-config #ig/ref :token-taper.health/checks
   :metrics #ig/ref :token-taper.observability/metrics
-  :logger #ig/ref :token-taper.logging/context}
+  :logger #ig/ref :token-taper.logging/context
+  :system-info-config #ig/ref :token-taper.system/info}
 
  :token-taper.health/checks
  {:database-timeout-ms 1000

@@ -61,6 +61,11 @@
   ([message request-id]
    (json-response 500 (envelope nil {:code "internal_error" :message message} request-id))))
 
+(defn diagnostic-ok
+  "Flat JSON body for safe public diagnostics (e.g. GET /v1/system/info)."
+  [body]
+  (json-response 200 body))
+
 (defn health-ok
   [body]
   (json-response 200 body))
