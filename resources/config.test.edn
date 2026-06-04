@@ -27,5 +27,8 @@
   :max-lifetime-ms 30000
   :auto-commit true}
 
+ :token-taper.db/migration
+ {:migration-dir #or [#env TOKEN_TAPER_MIGRATION_DIR "migrations"]}
+
  :token-taper/config
  {:loaded-from "resources/config.test.edn"}}

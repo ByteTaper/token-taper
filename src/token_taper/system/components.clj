@@ -34,6 +34,14 @@
   [_ component]
   (http-server/stop-server! component))
 
+(defmethod ig/init-key :token-taper.db/migration
+  [_ config]
+  config)
+
+(defmethod ig/halt-key! :token-taper.db/migration
+  [_ _]
+  nil)
+
 (defmethod ig/init-key :token-taper.db/datasource
   [_ config]
   (datasource/make-datasource config))
