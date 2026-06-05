@@ -41,6 +41,8 @@
               (i/counter :tokentaper_http_errors_total
                          {:labels http-labels
                           :description "Total HTTP 5xx responses."})
+              (i/counter :tokentaper_task_started_total
+                         {:description "Total AI tasks started via API."})
               (i/gauge :tokentaper_database_ready
                        {:description "Database readiness state."})
               (i/gauge :tokentaper_jvm_memory_used_bytes
@@ -76,6 +78,10 @@
 (defn uptime-seconds
   [{:keys [started-at]}]
   (/ (- (System/currentTimeMillis) started-at) 1000.0))
+
+(defn record-task-started!
+  [{:keys [registry]}]
+  (i/inc registry :tokentaper_task_started_total))
 
 (defn record-http-request!
   [{:keys [registry]} {:keys [method route status duration-s]}]

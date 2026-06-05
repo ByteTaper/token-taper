@@ -5,6 +5,7 @@
   (:require
    [ring.adapter.jetty :as jetty]
    [reitit.ring :as ring]
+   [token-taper.api.json-body :as json-body]
    [token-taper.api.middleware :as middleware]
    [token-taper.api.response :as response]
    [token-taper.api.routes :as routes]
@@ -33,6 +34,7 @@
     (-> ring-handler
         middleware/wrap-basic-headers
         (cond-> metrics (http-metrics/wrap-http-metrics metrics))
+        json-body/wrap-json-body
         (middleware/wrap-request-logging logger)
         (middleware/wrap-exception logger)
         middleware/wrap-request-id)))

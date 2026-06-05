@@ -7,7 +7,8 @@
   #{"/health/live"
     "/health/ready"
     "/metrics"
-    "/v1/system/info"})
+    "/v1/system/info"
+    "/v1/tasks/start"})
 
 (defn route-label
   [request]

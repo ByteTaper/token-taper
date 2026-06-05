@@ -61,6 +61,29 @@
   ([message request-id]
    (json-response 500 (envelope nil {:code "internal_error" :message message} request-id))))
 
+(defn flat-json-response
+  "Flat JSON body without data/error envelope (v0.2 trace APIs)."
+  [status body]
+  (json-response status body))
+
+(defn created-flat
+  [body]
+  (flat-json-response 201 body))
+
+(defn validation-error-response
+  [message details]
+  (flat-json-response 400
+                      {:error "validation_error"
+                       :message message
+                       :details details}))
+
+(defn conflict-error-response
+  [message details]
+  (flat-json-response 409
+                      {:error "task_conflict"
+                       :message message
+                       :details details}))
+
 (defn diagnostic-ok
   "Flat JSON body for safe public diagnostics (e.g. GET /v1/system/info)."
   [body]

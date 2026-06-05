@@ -6,7 +6,8 @@
    [reitit.ring :as ring]
    [token-taper.api.response :as response]
    [token-taper.health.service :as health]
-   [token-taper.observability.metrics :as metrics]))
+   [token-taper.observability.metrics :as metrics]
+   [token-taper.task.api :as task-api]))
 
 (defn system-info-handler
   [system-info]
@@ -33,9 +34,13 @@
     (metrics/scrape metrics-component)))
 
 (defn router
-  [{:keys [system-info health-system metrics]}]
+  [{:keys [system-info health-system metrics datasource logger]}]
   (ring/router
    [["/health/live" {:get (live-handler health-system)}]
     ["/health/ready" {:get (ready-handler health-system)}]
     ["/metrics" {:get (metrics-handler metrics)}]
-    ["/v1/system/info" {:get (system-info-handler system-info)}]]))
+    ["/v1/system/info" {:get (system-info-handler system-info)}]
+    ["/v1/tasks/start" {:post (task-api/start-task-handler
+                              {:datasource datasource
+                               :logger logger
+                               :metrics metrics})}]]))

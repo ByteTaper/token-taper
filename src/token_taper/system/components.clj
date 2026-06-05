@@ -98,6 +98,7 @@
     (-> (http-server/start-server! config {:system-info info
                                            :health-system health-system
                                            :metrics metrics'
+                                           :datasource datasource
                                            :logger logger})
         (assoc :status :started))))
 
