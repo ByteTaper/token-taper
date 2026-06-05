@@ -25,7 +25,9 @@
     "004-create-ai-task-table.up.sql"
     "004-create-ai-task-table.down.sql"
     "005-create-ai-span-table.up.sql"
-    "005-create-ai-span-table.down.sql"})
+    "005-create-ai-span-table.down.sql"
+    "006-create-ai-event-table.up.sql"
+    "006-create-ai-event-table.down.sql"})
 
 (defn- migration-files []
   (->> (io/file migrations-dir)
@@ -105,6 +107,7 @@
         (is (table-exists? ds "audit_log"))
         (is (table-exists? ds "ai_task"))
         (is (table-exists? ds "ai_span"))
+        (is (table-exists? ds "ai_event"))
         (is (table-exists? ds "schema_migrations"))
         (finally
           (datasource/close-datasource! ds))))))
@@ -141,6 +144,9 @@
           ds (datasource/make-datasource ds-cfg)]
       (try
         (migration/migrate! (assoc opts :datasource ds))
+        (migration/rollback! (assoc opts :datasource ds))
+        (is (not (table-exists? ds "ai_event")))
+        (is (table-exists? ds "ai_span"))
         (migration/rollback! (assoc opts :datasource ds))
         (is (not (table-exists? ds "ai_span")))
         (is (table-exists? ds "ai_task"))
