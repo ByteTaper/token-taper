@@ -48,7 +48,7 @@
   :username #or [#env TOKEN_TAPER_TEST_DATABASE_USER "token_taper"]
   :password #or [#env TOKEN_TAPER_TEST_DATABASE_PASSWORD "token_taper"]
   :pool-name "token-taper-test-db"
-  :maximum-pool-size 2
+  :maximum-pool-size 10
   :minimum-idle 0
   :connection-timeout-ms 5000
   :validation-timeout-ms 1000

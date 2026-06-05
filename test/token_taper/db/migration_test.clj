@@ -16,12 +16,14 @@
 (def migrations-dir "migrations")
 
 (def expected-migration-files
-  #{"001_create_tenant_table.up.sql"
-    "001_create_tenant_table.down.sql"
-    "002_create_api_key_table.up.sql"
-    "002_create_api_key_table.down.sql"
-    "003_create_audit_log_table.up.sql"
-    "003_create_audit_log_table.down.sql"})
+  #{"001-create-tenant-table.up.sql"
+    "001-create-tenant-table.down.sql"
+    "002-create-api-key-table.up.sql"
+    "002-create-api-key-table.down.sql"
+    "003-create-audit-log-table.up.sql"
+    "003-create-audit-log-table.down.sql"
+    "004-create-ai-task-table.up.sql"
+    "004-create-ai-task-table.down.sql"})
 
 (defn- migration-files []
   (->> (io/file migrations-dir)
@@ -99,6 +101,7 @@
         (is (table-exists? ds "tenant"))
         (is (table-exists? ds "api_key"))
         (is (table-exists? ds "audit_log"))
+        (is (table-exists? ds "ai_task"))
         (is (table-exists? ds "schema_migrations"))
         (finally
           (datasource/close-datasource! ds))))))
@@ -135,6 +138,9 @@
           ds (datasource/make-datasource ds-cfg)]
       (try
         (migration/migrate! (assoc opts :datasource ds))
+        (migration/rollback! (assoc opts :datasource ds))
+        (is (not (table-exists? ds "ai_task")))
+        (is (table-exists? ds "audit_log"))
         (migration/rollback! (assoc opts :datasource ds))
         (is (not (table-exists? ds "audit_log")))
         (is (table-exists? ds "api_key"))

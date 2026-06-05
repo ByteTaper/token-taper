@@ -3,15 +3,23 @@
 
 (ns token-taper.db.jdbc
   (:require
-   [next.jdbc :as jdbc]))
+   [next.jdbc :as jdbc]
+   [next.jdbc.result-set :as jdbc-rs]))
+
+(def ^:private default-opts
+  {:builder-fn jdbc-rs/as-unqualified-kebab-maps})
 
 (defn execute!
   [connectable sql-params]
-  (jdbc/execute! connectable sql-params))
+  (if (vector? sql-params)
+    (jdbc/execute! connectable sql-params default-opts)
+    (jdbc/execute! connectable sql-params default-opts)))
 
 (defn execute-one!
   [connectable sql-params]
-  (jdbc/execute-one! connectable sql-params))
+  (if (vector? sql-params)
+    (jdbc/execute-one! connectable sql-params default-opts)
+    (jdbc/execute-one! connectable sql-params default-opts)))
 
 (defmacro with-transaction
   [[tx connectable opts] & body]
