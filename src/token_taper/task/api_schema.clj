@@ -5,9 +5,9 @@
   (:require
    [malli.core :as m]
    [malli.error :as me]
-   [token-taper.task.errors :as errors])
+   [token-taper.task.errors :as errors]
+   [token-taper.time.instant :as time-instant])
   (:import
-   [java.time Instant]
    [java.util UUID]))
 
 (def StartTaskRequest
@@ -16,7 +16,7 @@
    [:external_task_id {:optional true} [:maybe :string]]
    [:workflow {:optional true} [:maybe :string]]
    [:task_type {:optional true} [:maybe :string]]
-   [:started_at {:optional true} [:maybe :any]]
+   [:started_at {:optional true} [:maybe inst?]]
    [:metadata {:optional true} [:map-of :keyword :any]]])
 
 (def ^:private uuid-string?
@@ -67,27 +67,15 @@
   [field reason]
   {:field field :reason reason})
 
-(defn- ->instant
-  [value]
-  (try
-    (cond
-      (nil? value) nil
-      (instance? Instant value) value
-      (string? value) (Instant/parse value)
-      :else
-      (throw (errors/validation-error
-              "Invalid task start request."
-              {:details [(validation-detail "started_at" "invalid")]})))
-    (catch java.time.format.DateTimeParseException _
-      (throw (errors/validation-error
-              "Invalid task start request."
-              {:details [(validation-detail "started_at" "invalid")]})))))
-
 (defn normalize-start-request
   [input]
   (cond-> input
     (:tenant_id input) (update :tenant_id ->uuid)
-    (contains? input :started_at) (update :started_at ->instant)
+    (contains? input :started_at)
+    (update :started_at #(time-instant/coerce-instant-field!
+                          "started_at"
+                          %
+                          "Invalid task start request."))
     true (update :metadata #(or % {}))))
 
 (defn validate-start-request!
@@ -149,3 +137,103 @@
   (if (and (map? details) (:external_task_id details))
     [{:field "external_task_id" :reason "duplicate"}]
     [{:field "external_task_id" :reason "duplicate"}]))
+
+(def FinishTaskRequest
+  [:map
+   [:status [:enum :finished :failed :cancelled]]
+   [:finished_at {:optional true} [:maybe inst?]]
+   [:metadata {:optional true} [:map-of :keyword :any]]])
+
+(def FinishTaskResponse
+  "Malli schema for POST /v1/tasks/{task_id}/finish 200 response body (JSON wire shape)."
+  [:map
+   [:task_id uuid-string?]
+   [:tenant_id uuid-string?]
+   [:external_task_id {:optional true} [:maybe :string]]
+   [:workflow {:optional true} [:maybe :string]]
+   [:task_type {:optional true} [:maybe :string]]
+   [:status [:enum "finished" "failed" "cancelled"]]
+   [:started_at rfc3339-string?]
+   [:finished_at rfc3339-string?]
+   [:metadata [:map-of :keyword :any]]])
+
+(def finish-task-response-schema FinishTaskResponse)
+
+(defn parse-task-id!
+  [task-id]
+  (try
+    (cond
+      (instance? UUID task-id) task-id
+      (string? task-id) (UUID/fromString task-id)
+      :else
+      (throw (errors/validation-error
+              "Invalid task finish request."
+              {:details [(validation-detail "task_id" "invalid")]})))
+    (catch IllegalArgumentException _
+      (throw (errors/validation-error
+              "Invalid task finish request."
+              {:details [(validation-detail "task_id" "invalid")]})))))
+
+(defn- ->finish-status
+  [value]
+  (cond
+    (keyword? value) value
+    (string? value) (keyword value)
+    :else value))
+
+(defn normalize-finish-request
+  [input]
+  (cond-> input
+    (:status input) (update :status ->finish-status)
+    (contains? input :finished_at)
+    (update :finished_at #(time-instant/coerce-instant-field!
+                           "finished_at"
+                           %
+                           "Invalid task finish request."))
+    true (update :metadata #(or % {}))))
+
+(defn validate-finish-request!
+  [input]
+  (let [normalized (-> input
+                       (update :metadata #(or % {}))
+                       normalize-finish-request)]
+    (if (m/validate FinishTaskRequest normalized)
+      normalized
+      (throw (errors/validation-error
+              "Invalid task finish request."
+              {:details (explain->details (m/explain FinishTaskRequest normalized))})))))
+
+(defn task->finish-response
+  [task]
+  {:task_id (uuid->string (:task/id task))
+   :tenant_id (uuid->string (:tenant/id task))
+   :external_task_id (:task/external-id task)
+   :workflow (:task/workflow task)
+   :task_type (:task/type task)
+   :status (name (:task/status task))
+   :started_at (instant->string (:task/started-at task))
+   :finished_at (instant->string (:task/finished-at task))
+   :metadata (or (:task/metadata task) {})})
+
+(defn validate-finish-response!
+  [response]
+  (if (m/validate FinishTaskResponse response)
+    response
+    (throw (ex-info "Invalid task finish response."
+                    {:error/kind :internal
+                     :error/message "Invalid task finish response."
+                     :error/details (explain->details
+                                     (m/explain FinishTaskResponse response))}))))
+
+(defn finish-task-response
+  "Build and validate the 200 response body for POST /v1/tasks/{task_id}/finish."
+  [task]
+  (-> task task->finish-response validate-finish-response!))
+
+(defn finish-conflict-details->api
+  [_details]
+  [{:field "status" :reason "already_terminal"}])
+
+(defn not-found-details->api
+  [_details]
+  [{:field "task_id" :reason "not_found"}])

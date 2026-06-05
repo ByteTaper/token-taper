@@ -70,6 +70,17 @@
   [body]
   (flat-json-response 201 body))
 
+(defn ok-flat
+  [body]
+  (flat-json-response 200 body))
+
+(defn not-found-error-response
+  [details]
+  (flat-json-response 404
+                      {:error "task_not_found"
+                       :message "Task was not found."
+                       :details details}))
+
 (defn validation-error-response
   [message details]
   (flat-json-response 400

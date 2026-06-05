@@ -6,7 +6,10 @@
    [malli.core :as m]
    [malli.error :as me]
    [token-taper.task.errors :as errors]
-   [token-taper.trace.span-model :as model]))
+   [token-taper.trace.span-model :as model]
+   [token-taper.time.instant :as time-instant])
+  (:import
+   [java.time Instant]))
 
 (def CreateSpanInput
   [:map
@@ -17,33 +20,53 @@
    [:external_span_id {:optional true} [:maybe string?]]
    [:name {:optional true} [:maybe string?]]
    [:metadata {:optional true} [:map-of :keyword :any]]
-   [:started_at {:optional true} :any]])
+   [:started_at {:optional true} [:maybe inst?]]])
 
 (def FinishSpanInput
   [:map
    [:status [:enum :finished :failed :cancelled]]
-   [:finished_at :any]
+   [:finished_at inst?]
    [:metadata {:optional true} [:map-of :keyword :any]]])
 
 (defn- explain->message
   [explain]
   (some-> explain me/humanize pr-str))
 
+(defn- normalize-create-input
+  [input]
+  (cond-> (-> input (update :metadata #(or % {})))
+    (contains? input :started_at)
+    (update :started_at #(time-instant/coerce-instant-field!
+                          "started_at"
+                          %
+                          "Invalid span creation input"))))
+
 (defn validate-create-input!
   [input]
-  (if (m/validate CreateSpanInput input)
-    (assoc input :metadata (or (:metadata input) {}))
-    (throw (errors/validation-error
-            "Invalid span creation input"
-            {:details (explain->message (m/explain CreateSpanInput input))}))))
+  (let [normalized (normalize-create-input input)]
+    (if (m/validate CreateSpanInput normalized)
+      normalized
+      (throw (errors/validation-error
+              "Invalid span creation input"
+              {:details (explain->message (m/explain CreateSpanInput normalized))})))))
+
+(defn- normalize-finish-input
+  [input]
+  (-> input
+      (update :metadata #(or % {}))
+      (update :finished_at #(time-instant/require-instant-field!
+                             "finished_at"
+                             %
+                             "Invalid span finish input"))))
 
 (defn validate-finish-input!
   [input]
-  (if (m/validate FinishSpanInput input)
-    input
-    (throw (errors/validation-error
-            "Invalid span finish input"
-            {:details (explain->message (m/explain FinishSpanInput input))}))))
+  (let [normalized (normalize-finish-input input)]
+    (if (m/validate FinishSpanInput normalized)
+      normalized
+      (throw (errors/validation-error
+              "Invalid span finish input"
+              {:details (explain->message (m/explain FinishSpanInput normalized))})))))
 
 (defn validate-status!
   [status]

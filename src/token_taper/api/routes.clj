@@ -41,6 +41,10 @@
     ["/metrics" {:get (metrics-handler metrics)}]
     ["/v1/system/info" {:get (system-info-handler system-info)}]
     ["/v1/tasks/start" {:post (task-api/start-task-handler
-                              {:datasource datasource
-                               :logger logger
-                               :metrics metrics})}]]))
+                               {:datasource datasource
+                                :logger logger
+                                :metrics metrics})}]
+    ["/v1/tasks/:task_id/finish" {:post (task-api/finish-task-handler
+                                         {:datasource datasource
+                                          :logger logger
+                                          :metrics metrics})}]]))

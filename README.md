@@ -31,8 +31,9 @@ HTTP endpoints:
 | GET | `/metrics` | Prometheus metrics (text exposition) |
 | GET | `/v1/system/info` | Service metadata |
 | POST | `/v1/tasks/start` | Start a new AI task trace |
+| POST | `/v1/tasks/{task_id}/finish` | Finish a started task (`finished`, `failed`, or `cancelled`) |
 
-**Health** (`/health/live`, `/health/ready`), **system info** (`/v1/system/info`), and **trace ingestion** (`POST /v1/tasks/start`) return **flat JSON** with no `{data, error}` envelope. See [docs/v0.2-trace-ingestion.md](docs/v0.2-trace-ingestion.md) for task start details.
+**Health** (`/health/live`, `/health/ready`), **system info** (`/v1/system/info`), and **trace ingestion** (`POST /v1/tasks/start`, `POST /v1/tasks/{task_id}/finish`) return **flat JSON** with no `{data, error}` envelope. See [docs/v0.2-trace-ingestion.md](docs/v0.2-trace-ingestion.md) for task API details.
 
 - **Live** — always `200` while the HTTP server is running; does not check PostgreSQL.
 - **Ready** — `200` when config, system, database, and `schema_migrations` checks pass; `503` otherwise.

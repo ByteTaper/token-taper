@@ -24,9 +24,9 @@
 
 (deftest validate-create-input-defaults-metadata-test
   (is (= {} (:metadata (schema/validate-create-input!
-                       {:tenant_id (UUID/randomUUID)
-                        :task_id (UUID/randomUUID)
-                        :span_type :workflow})))))
+                        {:tenant_id (UUID/randomUUID)
+                         :task_id (UUID/randomUUID)
+                         :span_type :workflow})))))
 
 (deftest validate-create-input-rejects-missing-tenant-test
   (is (thrown? clojure.lang.ExceptionInfo
@@ -52,6 +52,22 @@
                (schema/validate-finish-input!
                 {:status :started
                  :finished_at (Instant/now)}))))
+
+(deftest validate-finish-input-rejects-missing-finished-at-test
+  (is (thrown? clojure.lang.ExceptionInfo
+               (schema/validate-finish-input!
+                {:status :finished}))))
+
+(deftest validate-create-input-coerces-started-at-string-test
+  (let [tenant-id (UUID/randomUUID)
+        task-id (UUID/randomUUID)
+        inst (Instant/parse "2026-06-05T10:00:00Z")]
+    (is (= inst
+           (:started_at (schema/validate-create-input!
+                         {:tenant_id tenant-id
+                          :task_id task-id
+                          :span_type :workflow
+                          :started_at "2026-06-05T10:00:00Z"}))))))
 
 (deftest error-kind-test
   (try

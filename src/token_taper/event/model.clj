@@ -133,3 +133,13 @@
                      :error/message "retry_count must not be negative"}))
 
     :else event))
+
+(defn validate-create-input-counts!
+  "Validate token/latency counters on create input before persistence."
+  [input]
+  (validate-non-negative-counts!
+   {:event/input-tokens (:input_tokens input)
+    :event/output-tokens (:output_tokens input)
+    :event/cached-tokens (:cached_tokens input)
+    :event/latency-ms (:latency_ms input)
+    :event/retry-count (:retry_count input)}))

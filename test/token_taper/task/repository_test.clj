@@ -93,7 +93,7 @@
         created (repo/create-task!
                  db
                  (support/sample-create-input tenant-id
-                                            :external-task-id "ext-lookup"))]
+                                              :external-task-id "ext-lookup"))]
     (try
       (is (= (:task/id created)
              (:task/id (repo/find-task-by-external-id db tenant-id "ext-lookup"))))
@@ -113,7 +113,7 @@
                             (repo/create-task!
                              db
                              (support/sample-create-input tenant-id
-                                                        :external-task-id "dup-ext"))))
+                                                          :external-task-id "dup-ext"))))
       (finally
         (support/delete-task! db (:task/id created))
         (support/delete-tenant! db tenant-id)))))
@@ -157,7 +157,7 @@
       (is (some? (:task/finished-at finished)))
       (is (= "ok" (:result (:task/metadata finished))))
       (is (>= (.compareTo (:task/updated-at finished)
-                           (:task/created-at finished))
+                          (:task/created-at finished))
               0))
       (finally
         (support/delete-task! db (:task/id created))

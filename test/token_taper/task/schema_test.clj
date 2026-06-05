@@ -22,7 +22,7 @@
 
 (deftest validate-create-input-defaults-metadata-test
   (is (= {} (:metadata (schema/validate-create-input!
-                       {:tenant_id (UUID/randomUUID)})))))
+                        {:tenant_id (UUID/randomUUID)})))))
 
 (deftest validate-create-input-rejects-missing-tenant-test
   (is (thrown? clojure.lang.ExceptionInfo

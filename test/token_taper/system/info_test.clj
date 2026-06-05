@@ -22,10 +22,10 @@
 
 (deftest system-info-returns-build-metadata-test
   (let [payload (sysinfo/build-for-app test-app
-                                    {:version "1.2.3"
-                                     :git_sha "abc123"
-                                     :git_branch "main"
-                                     :build_time "2026-06-04T10:15:30Z"})]
+                                       {:version "1.2.3"
+                                        :git_sha "abc123"
+                                        :git_branch "main"
+                                        :build_time "2026-06-04T10:15:30Z"})]
     (is (= "abc123" (get-in payload [:build :git_sha])))
     (is (= "main" (get-in payload [:build :git_branch])))
     (is (= "2026-06-04T10:15:30Z" (get-in payload [:build :build_time])))))

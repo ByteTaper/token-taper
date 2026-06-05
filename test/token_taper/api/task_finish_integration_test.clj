@@ -1,7 +1,7 @@
 ;; SPDX-FileCopyrightText: 2026 Haluan Irsad
 ;; SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
-(ns token-taper.api.task-start-integration-test
+(ns token-taper.api.task-finish-integration-test
   (:require
    [clojure.test :refer [deftest is use-fixtures]]
    [jsonista.core :as json]
@@ -75,6 +75,11 @@
              (mock/content-type "application/json")
              (mock/json-body body))))
 
+(defn- post-finish [task-id body]
+  ((app) (-> (mock/request :post (str "/v1/tasks/" task-id "/finish"))
+             (mock/content-type "application/json")
+             (mock/json-body body))))
+
 (defn integration-fixture
   [f]
   (if (db-support/integration-db-available?)
@@ -89,54 +94,69 @@
 
 (use-fixtures :once integration-fixture)
 
-(deftest ^:integration start-task-persists-row-test
+(defn- start-task!
+  [db tenant-id]
+  (let [response (post-start {:tenant_id (str tenant-id)
+                              :external_task_id (str "finish-" (UUID/randomUUID))
+                              :metadata {:environment "dev"}})
+        body (json-body response)]
+    (is (= 201 (:status response)))
+    (UUID/fromString (:task_id body))))
+
+(deftest ^:integration finish-task-terminal-statuses-test
+  (let [db (:datasource @integration-state)
+        tenant-id (task-support/insert-tenant! db)]
+    (try
+      (doseq [status ["finished" "failed" "cancelled"]]
+        (let [task-id (start-task! db tenant-id)
+              response (post-finish task-id {:status status})
+              body (json-body response)
+              found (task-repo/find-task-by-id db task-id)]
+          (try
+            (is (= 200 (:status response)))
+            (is (= status (:status body)))
+            (is (= (keyword status) (:task/status found)))
+            (is (some? (:task/finished-at found)))
+            (finally
+              (task-support/delete-task! db task-id)))))
+      (finally
+        (task-support/delete-tenant! db tenant-id)))))
+
+(deftest ^:integration finish-task-metadata-merge-test
   (let [db (:datasource @integration-state)
         tenant-id (task-support/insert-tenant! db)
-        response (post-start {:tenant_id (str tenant-id)
-                              :external_task_id "api-ext-1"
-                              :workflow "wf"
-                              :task_type "agentic_workflow"
-                              :metadata {:source "test"}})
+        task-id (start-task! db tenant-id)
+        response (post-finish task-id {:status "finished"
+                                       :metadata {:result "ok"}})
         body (json-body response)
-        task-id (UUID/fromString (:task_id body))
         found (task-repo/find-task-by-id db task-id)]
     (try
-      (is (= 201 (:status response)))
-      (is (= :started (:task/status found)))
-      (is (nil? (:task/finished-at found)))
-      (is (= "test" (get-in found [:task/metadata :source])))
-      (is (= "api-ext-1" (:task/external-id found)))
+      (is (= 200 (:status response)))
+      (is (= "dev" (get-in body [:metadata :environment])))
+      (is (= "ok" (get-in body [:metadata :result])))
+      (is (= "dev" (get-in found [:task/metadata :environment])))
+      (is (= "ok" (get-in found [:task/metadata :result])))
       (finally
         (task-support/delete-task! db task-id)
         (task-support/delete-tenant! db tenant-id)))))
 
-(deftest ^:integration duplicate-external-id-409-test
+(deftest ^:integration finish-task-not-found-404-test
+  (let [missing-id (UUID/randomUUID)
+        response (post-finish missing-id {:status "finished"})
+        body (json-body response)]
+    (is (= 404 (:status response)))
+    (is (= "task_not_found" (:error body)))))
+
+(deftest ^:integration finish-task-twice-409-test
   (let [db (:datasource @integration-state)
         tenant-id (task-support/insert-tenant! db)
-        created (post-start {:tenant_id (str tenant-id)
-                             :external_task_id "dup-api"})
-        task-id (UUID/fromString (:task_id (json-body created)))]
+        task-id (start-task! db tenant-id)]
     (try
-      (is (= 409 (:status (post-start {:tenant_id (str tenant-id)
-                                       :external_task_id "dup-api"}))))
+      (is (= 200 (:status (post-finish task-id {:status "finished"}))))
+      (let [second (post-finish task-id {:status "finished"})
+            body (json-body second)]
+        (is (= 409 (:status second)))
+        (is (= "task_conflict" (:error body))))
       (finally
         (task-support/delete-task! db task-id)
         (task-support/delete-tenant! db tenant-id)))))
-
-(deftest ^:integration same-external-id-different-tenants-test
-  (let [db (:datasource @integration-state)
-        tenant-a (task-support/insert-tenant! db)
-        tenant-b (task-support/insert-tenant! db)
-        resp-a (post-start {:tenant_id (str tenant-a) :external_task_id "shared"})
-        resp-b (post-start {:tenant_id (str tenant-b) :external_task_id "shared"})
-        id-a (UUID/fromString (:task_id (json-body resp-a)))
-        id-b (UUID/fromString (:task_id (json-body resp-b)))]
-    (try
-      (is (not= id-a id-b))
-      (is (= 201 (:status resp-a)))
-      (is (= 201 (:status resp-b)))
-      (finally
-        (task-support/delete-task! db id-a)
-        (task-support/delete-task! db id-b)
-        (task-support/delete-tenant! db tenant-a)
-        (task-support/delete-tenant! db tenant-b)))))

@@ -19,12 +19,12 @@
              name "Test Tenant"
              slug (str "tenant-" (new-uuid))
              status "active"}}]
-  (jdbc/execute-one!
-   db
-   ["INSERT INTO tenant (id, name, slug, status, created_at, updated_at)
+   (jdbc/execute-one!
+    db
+    ["INSERT INTO tenant (id, name, slug, status, created_at, updated_at)
      VALUES (?, ?, ?, ?, now(), now())
      RETURNING id"
-    id name slug status])
+     id name slug status])
    id))
 
 (defn delete-tenant!

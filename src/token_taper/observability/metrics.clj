@@ -43,6 +43,9 @@
                           :description "Total HTTP 5xx responses."})
               (i/counter :tokentaper_task_started_total
                          {:description "Total AI tasks started via API."})
+              (i/counter :tokentaper_task_finished_total
+                         {:labels [:status :workflow]
+                          :description "Total AI tasks finished via API."})
               (i/gauge :tokentaper_database_ready
                        {:description "Database readiness state."})
               (i/gauge :tokentaper_jvm_memory_used_bytes
@@ -72,7 +75,7 @@
     (i/set registry :tokentaper_build_info (build-info-labels component) 1)
     ;; Seed one series so Prometheus exposition includes the HTTP counter before first request.
     (i/inc registry :tokentaper_http_requests_total
-         {:method "GET" :route "/health/live" :status "200"})
+           {:method "GET" :route "/health/live" :status "200"})
     component))
 
 (defn uptime-seconds
@@ -82,6 +85,12 @@
 (defn record-task-started!
   [{:keys [registry]}]
   (i/inc registry :tokentaper_task_started_total))
+
+(defn record-task-finished!
+  [{:keys [registry]} {:keys [status workflow]}]
+  (i/inc registry :tokentaper_task_finished_total
+         {:status (or status "unknown")
+          :workflow (or workflow "unknown")}))
 
 (defn record-http-request!
   [{:keys [registry]} {:keys [method route status duration-s]}]

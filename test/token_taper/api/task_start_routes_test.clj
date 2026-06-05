@@ -97,19 +97,19 @@
 
 (deftest start-task-invalid-json-400-test
   (let [response ((app) (-> (mock/request :post "/v1/tasks/start")
-                           (mock/content-type "application/json")
-                           (assoc :body "{invalid}")))
+                            (mock/content-type "application/json")
+                            (assoc :body "{invalid}")))
         body (json-body response)]
     (is (= 400 (:status response)))
     (is (= "validation_error" (:error body)))))
 
 (deftest start-task-conflict-409-test
   (with-redefs [task-service/start-task!
-               (fn [_ _ _]
-                 (throw (ex-info "Duplicate external_task_id for tenant"
-                                 {:error/kind :conflict
-                                  :error/message "Duplicate external_task_id for tenant"
-                                  :error/details {:external_task_id "dup"}})))]
+                (fn [_ _ _]
+                  (throw (ex-info "Duplicate external_task_id for tenant"
+                                  {:error/kind :conflict
+                                   :error/message "Duplicate external_task_id for tenant"
+                                   :error/details {:external_task_id "dup"}})))]
     (let [response (post-start {:tenant_id (str (UUID/randomUUID))
                                 :external_task_id "dup"})
           body (json-body response)]

@@ -7,7 +7,10 @@
    [malli.core :as m]
    [malli.error :as me]
    [token-taper.task.errors :as errors]
-   [token-taper.event.model :as model]))
+   [token-taper.event.model :as model]
+   [token-taper.time.instant :as time-instant])
+  (:import
+   [java.time Instant]))
 
 (def non-neg-int?
   [:int {:min 0}])
@@ -18,7 +21,7 @@
    [:task_id uuid?]
    [:event_type [:enum :llm_call :tool_call :retry :cache]]
    [:status [:enum :success :failure :timeout :cancelled :skipped]]
-   [:occurred_at :any]
+   [:occurred_at inst?]
    [:span_id {:optional true} [:maybe uuid?]]
    [:external_event_id {:optional true} [:maybe string?]]
    [:provider {:optional true} [:maybe string?]]
@@ -46,6 +49,10 @@
     (boolean? v) true
     :else (some? v)))
 
+(defn- success-status?
+  [status]
+  (= :success status))
+
 (defn validate-event-type!
   [event-type]
   (when-not (model/valid-event-type? event-type)
@@ -64,21 +71,31 @@
   [input]
   (case (:event_type input)
     :llm_call
-    (when (or (not (present? (:provider input)))
-              (not (present? (:model input)))
-              (not (present? (:input_tokens input)))
-              (not (present? (:output_tokens input)))
-              (not (present? (:latency_ms input))))
-      (throw (errors/validation-error
-              "LLM call event requires provider, model, input_tokens, output_tokens, and latency_ms"
-              {:details {:event_type :llm_call}})))
+    (do
+      (when (or (not (present? (:provider input)))
+                (not (present? (:model input))))
+        (throw (errors/validation-error
+                "LLM call event requires provider and model"
+                {:details {:event_type :llm_call}})))
+      (when (success-status? (:status input))
+        (when (or (not (present? (:input_tokens input)))
+                  (not (present? (:output_tokens input)))
+                  (not (present? (:latency_ms input))))
+          (throw (errors/validation-error
+                  "Successful LLM call event requires input_tokens, output_tokens, and latency_ms"
+                  {:details {:event_type :llm_call :status (:status input)}})))))
 
     :tool_call
-    (when (or (not (present? (:tool_name input)))
-              (not (present? (:latency_ms input))))
-      (throw (errors/validation-error
-              "Tool call event requires tool_name and latency_ms"
-              {:details {:event_type :tool_call}})))
+    (do
+      (when (not (present? (:tool_name input)))
+        (throw (errors/validation-error
+                "Tool call event requires tool_name"
+                {:details {:event_type :tool_call}})))
+      (when (success-status? (:status input))
+        (when (not (present? (:latency_ms input)))
+          (throw (errors/validation-error
+                  "Successful tool call event requires latency_ms"
+                  {:details {:event_type :tool_call :status (:status input)}})))))
 
     :retry
     (when (or (not (present? (:retry_count input)))
@@ -96,11 +113,20 @@
     nil)
   input)
 
+(defn- normalize-create-input
+  [input]
+  (-> input
+      (update :metadata #(or % {}))
+      (update :occurred_at #(time-instant/require-instant-field!
+                             "occurred_at"
+                             %
+                             "Invalid event creation input"))))
+
 (defn validate-create-input!
   [input]
-  (if (m/validate CreateEventInput input)
-    (let [with-metadata (assoc input :metadata (or (:metadata input) {}))]
-      (validate-event-type-fields! with-metadata))
-    (throw (errors/validation-error
-            "Invalid event creation input"
-            {:details (explain->message (m/explain CreateEventInput input))}))))
+  (let [normalized (normalize-create-input input)]
+    (if (m/validate CreateEventInput normalized)
+      (validate-event-type-fields! normalized)
+      (throw (errors/validation-error
+              "Invalid event creation input"
+              {:details (explain->message (m/explain CreateEventInput normalized))})))))

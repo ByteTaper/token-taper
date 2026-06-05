@@ -8,9 +8,9 @@
    [token-taper.task.errors :as errors]
    [token-taper.task.repository :as task-repo]
    [token-taper.trace.span-model :as model]
-   [token-taper.trace.span-schema :as schema])
+   [token-taper.trace.span-schema :as schema]
+   [token-taper.time.instant :as time-instant])
   (:import
-   [java.sql Timestamp]
    [java.time Instant]
    [java.util UUID]))
 
@@ -21,14 +21,6 @@
 (defn- now
   []
   (Instant/now))
-
-(defn- ->timestamp
-  [value]
-  (cond
-    (nil? value) nil
-    (instance? Instant value) (Timestamp/from ^Instant value)
-    (instance? Timestamp value) value
-    :else value))
 
 (defn- select-span-sql
   []
@@ -94,8 +86,8 @@
       (throw (errors/validation-error
               "Parent span belongs to another task"
               {:details {:task_id task-id
-                        :parent_span_id parent-span-id
-                        :parent_task_id (:task/id parent)}})))
+                         :parent_span_id parent-span-id
+                         :parent_task_id (:task/id parent)}})))
     parent))
 
 (defn- validate-task-for-span!
@@ -109,8 +101,8 @@
       (throw (errors/validation-error
               "tenant_id does not match task"
               {:details {:tenant_id tenant-id
-                        :task_id task-id
-                        :task_tenant_id (:tenant/id task)}})))
+                         :task_id task-id
+                         :task_tenant_id (:tenant/id task)}})))
     task))
 
 (defn create-span!
@@ -122,40 +114,58 @@
     (when-let [parent-id (:parent_span_id validated)]
       (validate-parent-span! db task-id parent-id))
     (let [span-id (UUID/randomUUID)
-          started-at (->timestamp (or (:started_at validated) (now)))]
-      (try
-        (let [row (jdbc/execute-one!
-                   db
-                   ["INSERT INTO ai_span (
+          started-at-inst (or (:started_at validated) (now))
+          pending {:span/status :started
+                   :span/started-at started-at-inst
+                   :span/finished-at nil}]
+      (model/validate-span-invariants! pending)
+      (let [started-at (time-instant/instant->sql-timestamp started-at-inst)]
+        (try
+          (let [row (jdbc/execute-one!
+                     db
+                     ["INSERT INTO ai_span (
                        id, tenant_id, task_id, parent_span_id, external_span_id,
                        span_type, name, status, started_at, finished_at, metadata
                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?::jsonb)
                      RETURNING id, tenant_id, task_id, parent_span_id, external_span_id,
                                span_type, name, status, started_at, finished_at, metadata,
                                created_at, updated_at"
-                    span-id
-                    tenant-id
-                    task-id
-                    (:parent_span_id validated)
-                    (:external_span_id validated)
-                    (model/span-type->db (:span_type validated))
-                    (:name validated)
-                    "started"
-                    started-at
-                    (encode-metadata (:metadata validated))])]
-          (-> row model/row->span model/validate-span-invariants!))
-        (catch org.postgresql.util.PSQLException e
-          (if (unique-violation? e)
-            (throw (errors/conflict-error
-                    "Duplicate external_span_id for tenant"
-                    {:details {:tenant_id tenant-id
-                               :external_span_id (:external_span_id validated)}}))
-            (throw e)))))))
+                      span-id
+                      tenant-id
+                      task-id
+                      (:parent_span_id validated)
+                      (:external_span_id validated)
+                      (model/span-type->db (:span_type validated))
+                      (:name validated)
+                      "started"
+                      started-at
+                      (encode-metadata (:metadata validated))])]
+            (model/row->span row))
+          (catch org.postgresql.util.PSQLException e
+            (if (unique-violation? e)
+              (throw (errors/conflict-error
+                      "Duplicate external_span_id for tenant"
+                      {:details {:tenant_id tenant-id
+                                 :external_span_id (:external_span_id validated)}}))
+              (throw e))))))))
 
 (defn update-span-status!
   [db span-id status finished-at & {:keys [metadata]}]
   (schema/validate-status! status)
-  (let [finished-at' (->timestamp (if (model/started? status) nil finished-at))
+  (let [span (find-span-by-id db span-id)
+        _ (when (nil? span)
+            (throw (errors/not-found-error "Span not found" {:details {:span-id span-id}})))
+        finished-at-inst (if (model/started? status)
+                           nil
+                           (time-instant/require-instant-field!
+                            "finished_at"
+                            finished-at
+                            "Invalid span status update"))
+        _ (model/validate-span-invariants!
+           (assoc span
+                  :span/status status
+                  :span/finished-at finished-at-inst))
+        finished-at' (time-instant/instant->sql-timestamp finished-at-inst)
         row (jdbc/execute-one!
              db
              ["UPDATE ai_span
@@ -170,7 +180,7 @@
               span-id])]
     (when-not row
       (throw (errors/not-found-error "Span not found" {:details {:span-id span-id}})))
-    (-> row model/row->span model/validate-span-invariants!)))
+    (model/row->span row)))
 
 (defn finish-span!
   [db span-id finish-data]
@@ -179,8 +189,14 @@
     (when (nil? span)
       (throw (errors/not-found-error "Span not found" {:details {:span-id span-id}})))
     (model/validate-finish-transition! span (:status validated))
-    (let [finished-at (->timestamp (:finished_at validated))
+    (let [finished-at-inst (or (:finished_at validated) (now))
+          status (:status validated)
           metadata (model/merge-metadata (:span/metadata span) (:metadata validated))
+          _ (model/validate-span-invariants!
+             (assoc span
+                    :span/status status
+                    :span/finished-at finished-at-inst))
+          finished-at (time-instant/instant->sql-timestamp finished-at-inst)
           row (jdbc/execute-one!
                db
                ["UPDATE ai_span
@@ -197,4 +213,4 @@
         (throw (errors/conflict-error
                 "Span is not in started status"
                 {:details {:span-id span-id :status (:span/status span)}})))
-      (-> row model/row->span model/validate-span-invariants!))))
+      (model/row->span row))))

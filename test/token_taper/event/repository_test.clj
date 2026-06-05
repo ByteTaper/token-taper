@@ -160,7 +160,7 @@
         in-span (repo/create-event!
                  db
                  (support/sample-cache-input tenant-id task-id
-                                            :span-id (:span/id span)))
+                                             :span-id (:span/id span)))
         events (repo/find-events-by-span-id db (:span/id span))]
     (try
       (is (= 1 (count events)))

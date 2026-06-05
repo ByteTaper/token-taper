@@ -214,7 +214,7 @@
       (is (some? (:span/finished-at finished)))
       (is (= "ok" (:result (:span/metadata finished))))
       (is (>= (.compareTo (:span/updated-at finished)
-                         (:span/created-at finished))
+                          (:span/created-at finished))
               0))
       (finally
         (task-support/delete-task! db task-id)

@@ -9,23 +9,15 @@
    [token-taper.task.repository :as task-repo]
    [token-taper.trace.span-repository :as span-repo]
    [token-taper.event.model :as model]
-   [token-taper.event.schema :as schema])
+   [token-taper.event.schema :as schema]
+   [token-taper.time.instant :as time-instant])
   (:import
-   [java.sql Timestamp]
    [java.time Instant]
    [java.util UUID]))
 
 (defn- encode-metadata
   [metadata]
   (json/write-value-as-string (or metadata {})))
-
-(defn- ->timestamp
-  [value]
-  (cond
-    (nil? value) nil
-    (instance? Instant value) (Timestamp/from ^Instant value)
-    (instance? Timestamp value) value
-    :else value))
 
 (defn- select-event-sql
   []
@@ -104,8 +96,8 @@
       (throw (errors/validation-error
               "Span belongs to another task"
               {:details {:task_id task-id
-                        :span_id span-id
-                        :span_task_id (:task/id span)}})))
+                         :span_id span-id
+                         :span_task_id (:task/id span)}})))
     span))
 
 (defn- validate-task-for-event!
@@ -119,8 +111,8 @@
       (throw (errors/validation-error
               "tenant_id does not match task"
               {:details {:tenant_id tenant-id
-                        :task_id task-id
-                        :task_tenant_id (:tenant/id task)}})))
+                         :task_id task-id
+                         :task_tenant_id (:tenant/id task)}})))
     task))
 
 (defn create-event!
@@ -131,8 +123,9 @@
     (validate-task-for-event! db tenant-id task-id)
     (when-let [span-id (:span_id validated)]
       (validate-span-for-event! db task-id span-id))
+    (model/validate-create-input-counts! validated)
     (let [event-id (UUID/randomUUID)
-          occurred-at (->timestamp (:occurred_at validated))]
+          occurred-at (time-instant/instant->sql-timestamp (:occurred_at validated))]
       (try
         (let [row (jdbc/execute-one!
                    db
@@ -169,7 +162,7 @@
                     (:error_message validated)
                     (encode-metadata (:metadata validated))
                     occurred-at])]
-          (-> row model/row->event model/validate-non-negative-counts!))
+          (model/row->event row))
         (catch org.postgresql.util.PSQLException e
           (if (unique-violation? e)
             (throw (errors/conflict-error

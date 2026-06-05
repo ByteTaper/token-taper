@@ -8,7 +8,8 @@
     "/health/ready"
     "/metrics"
     "/v1/system/info"
-    "/v1/tasks/start"})
+    "/v1/tasks/start"
+    "/v1/tasks/:task_id/finish"})
 
 (defn route-label
   [request]

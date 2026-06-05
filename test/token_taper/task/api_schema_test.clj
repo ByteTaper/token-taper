@@ -79,3 +79,70 @@
                           :started_at "not-rfc3339"
                           :finished_at nil
                           :metadata {}}))))
+
+(deftest validate-finish-request-normalizes-metadata-test
+  (let [result (api-schema/validate-finish-request! {:status :finished})]
+    (is (= {} (:metadata result)))))
+
+(deftest validate-finish-request-normalizes-finished-at-test
+  (let [inst (Instant/parse "2026-06-05T10:10:00Z")
+        result (api-schema/validate-finish-request!
+                {:status :finished
+                 :finished_at "2026-06-05T10:10:00Z"})]
+    (is (= inst (:finished_at result)))))
+
+(deftest validate-finish-request-rejects-invalid-status-test
+  (is (thrown? clojure.lang.ExceptionInfo
+               (api-schema/validate-finish-request! {:status :started}))))
+
+(deftest validate-finish-request-rejects-invalid-finished-at-test
+  (try
+    (api-schema/validate-finish-request!
+     {:status :finished
+      :finished_at "not-a-time"})
+    (is false "expected validation error")
+    (catch clojure.lang.ExceptionInfo e
+      (is (= :validation (:error/kind (ex-data e))))
+      (is (= [{:field "finished_at" :reason "invalid"}]
+             (:error/details (ex-data e)))))))
+
+(deftest parse-task-id-accepts-uuid-string-test
+  (let [id (UUID/randomUUID)]
+    (is (= id (api-schema/parse-task-id! (str id))))))
+
+(deftest parse-task-id-rejects-invalid-test
+  (try
+    (api-schema/parse-task-id! "not-a-uuid")
+    (is false "expected validation error")
+    (catch clojure.lang.ExceptionInfo e
+      (is (= :validation (:error/kind (ex-data e))))
+      (is (= [{:field "task_id" :reason "invalid"}]
+             (:error/details (ex-data e)))))))
+
+(deftest finish-task-response-shape-test
+  (let [tenant-id (UUID/randomUUID)
+        task-id (UUID/randomUUID)
+        started (Instant/parse "2026-06-05T10:00:00Z")
+        finished (Instant/parse "2026-06-05T10:10:00Z")
+        body (api-schema/finish-task-response
+              {:task/id task-id
+               :tenant/id tenant-id
+               :task/external-id "ext-1"
+               :task/workflow "wf"
+               :task/type "agentic_workflow"
+               :task/status :finished
+               :task/started-at started
+               :task/finished-at finished
+               :task/metadata {:result "ok"}})]
+    (is (= (str task-id) (:task_id body)))
+    (is (= "finished" (:status body)))
+    (is (= "2026-06-05T10:10:00Z" (:finished_at body)))
+    (is (= "ok" (get-in body [:metadata :result])))))
+
+(deftest finish-task-response-schema-rejects-missing-finished-at-test
+  (is (false? (m/validate api-schema/FinishTaskResponse
+                          {:task_id (str (UUID/randomUUID))
+                           :tenant_id (str (UUID/randomUUID))
+                           :status "finished"
+                           :started_at "2026-06-05T10:00:00Z"
+                           :metadata {}}))))

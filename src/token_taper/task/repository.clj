@@ -7,9 +7,9 @@
    [token-taper.db.jdbc :as jdbc]
    [token-taper.task.errors :as errors]
    [token-taper.task.model :as model]
-   [token-taper.task.schema :as schema])
+   [token-taper.task.schema :as schema]
+   [token-taper.time.instant :as time-instant])
   (:import
-   [java.sql Timestamp]
    [java.time Instant]
    [java.util UUID]))
 
@@ -20,14 +20,6 @@
 (defn- now
   []
   (Instant/now))
-
-(defn- ->timestamp
-  [value]
-  (cond
-    (nil? value) nil
-    (instance? Instant value) (Timestamp/from ^Instant value)
-    (instance? Timestamp value) value
-    :else value))
 
 (defn- select-task-sql
   []
@@ -62,7 +54,12 @@
   [db input]
   (let [validated (schema/validate-create-input! input)
         task-id (UUID/randomUUID)
-        started-at (->timestamp (or (:started_at validated) (now)))]
+        started-at-inst (or (:started_at validated) (now))
+        _ (model/validate-task-invariants!
+           {:task/status :started
+            :task/started-at started-at-inst
+            :task/finished-at nil})
+        started-at (time-instant/instant->sql-timestamp started-at-inst)]
     (try
       (let [row (jdbc/execute-one!
                  db
@@ -80,19 +77,32 @@
                   "started"
                   started-at
                   (encode-metadata (:metadata validated))])]
-        (-> row model/row->task model/validate-task-invariants!))
+        (model/row->task row))
       (catch org.postgresql.util.PSQLException e
         (if (unique-violation? e)
           (throw (errors/conflict-error
                   "Duplicate external_task_id for tenant"
                   {:details {:tenant_id (:tenant_id validated)
-                              :external_task_id (:external_task_id validated)}}))
+                             :external_task_id (:external_task_id validated)}}))
           (throw e))))))
 
 (defn update-task-status!
   [db task-id status finished-at & {:keys [metadata]}]
   (schema/validate-status! status)
-  (let [finished-at' (->timestamp (if (model/started? status) nil finished-at))
+  (let [task (find-task-by-id db task-id)
+        _ (when (nil? task)
+            (throw (errors/not-found-error "Task not found" {:details {:task-id task-id}})))
+        finished-at-inst (if (model/started? status)
+                           nil
+                           (time-instant/require-instant-field!
+                            "finished_at"
+                            finished-at
+                            "Invalid task status update"))
+        _ (model/validate-task-invariants!
+           (assoc task
+                  :task/status status
+                  :task/finished-at finished-at-inst))
+        finished-at' (time-instant/instant->sql-timestamp finished-at-inst)
         row (jdbc/execute-one!
              db
              ["UPDATE ai_task
@@ -106,7 +116,7 @@
               task-id])]
     (when-not row
       (throw (errors/not-found-error "Task not found" {:details {:task-id task-id}})))
-    (-> row model/row->task model/validate-task-invariants!)))
+    (model/row->task row)))
 
 (defn finish-task!
   [db task-id finish-data]
@@ -115,8 +125,14 @@
     (when (nil? task)
       (throw (errors/not-found-error "Task not found" {:details {:task-id task-id}})))
     (model/validate-finish-transition! task (:status validated))
-    (let [finished-at (->timestamp (:finished_at validated))
+    (let [finished-at-inst (or (:finished_at validated) (now))
+          status (:status validated)
           metadata (model/merge-metadata (:task/metadata task) (:metadata validated))
+          _ (model/validate-task-invariants!
+             (assoc task
+                    :task/status status
+                    :task/finished-at finished-at-inst))
+          finished-at (time-instant/instant->sql-timestamp finished-at-inst)
           row (jdbc/execute-one!
                db
                ["UPDATE ai_task
@@ -132,4 +148,4 @@
         (throw (errors/conflict-error
                 "Task is not in started status"
                 {:details {:task-id task-id :status (:task/status task)}})))
-      (-> row model/row->task model/validate-task-invariants!))))
+      (model/row->task row))))

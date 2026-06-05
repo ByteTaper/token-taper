@@ -7,7 +7,9 @@
    [token-taper.observability.metrics :as metrics]
    [token-taper.task.api-schema :as api-schema]
    [token-taper.task.errors :as errors]
-   [token-taper.task.repository :as repository]))
+   [token-taper.task.repository :as repository])
+  (:import
+   [java.time Instant]))
 
 (defn- log-fields
   [request]
@@ -36,3 +38,32 @@
                              {:error_kind (:error/kind (ex-data e))}
                              (logging/build-error-fields logger e)))
       (throw e))))
+
+(defn finish-task!
+  [db task-id-str request {:keys [logger metrics]}]
+  (let [task-id (api-schema/parse-task-id! task-id-str)]
+    (logging/info! logger :task_finish_requested
+                   (cond-> {:task_id task-id}
+                     (:status request) (assoc :status (:status request))))
+    (try
+      (let [validated (api-schema/validate-finish-request! request)
+            finish-data (assoc validated
+                               :finished_at (or (:finished_at validated) (Instant/now)))
+            task (repository/finish-task! db task-id finish-data)]
+        (when metrics
+          (metrics/record-task-finished! metrics
+                                         {:status (name (:task/status task))
+                                          :workflow (or (:task/workflow task) "unknown")}))
+        (logging/info! logger :task_finished
+                       {:task_id (:task/id task)
+                        :tenant_id (:tenant/id task)
+                        :external_task_id (:task/external-id task)
+                        :workflow (:task/workflow task)
+                        :status (:task/status task)})
+        task)
+      (catch clojure.lang.ExceptionInfo e
+        (logging/error! logger :task_finish_failed
+                        (merge {:task_id task-id}
+                               {:error_kind (:error/kind (ex-data e))}
+                               (logging/build-error-fields logger e)))
+        (throw e)))))

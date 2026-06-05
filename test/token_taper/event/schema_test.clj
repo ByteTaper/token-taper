@@ -94,16 +94,50 @@
            (:event_type (schema/validate-create-input!
                          (support/sample-llm-call-input tenant-id task-id)))))))
 
-(deftest validate-llm-call-rejects-incomplete-test
+(deftest validate-llm-call-rejects-incomplete-success-test
   (let [tenant-id (UUID/randomUUID)
         task-id (UUID/randomUUID)]
-    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"LLM call"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Successful LLM call"
                           (schema/validate-create-input!
                            {:tenant_id tenant-id
                             :task_id task-id
                             :event_type :llm_call
                             :status :success
+                            :provider "anthropic"
+                            :model "claude"
                             :occurred_at (Instant/now)})))))
+
+(deftest validate-llm-failure-without-tokens-test
+  (let [tenant-id (UUID/randomUUID)
+        task-id (UUID/randomUUID)
+        result (schema/validate-create-input!
+                {:tenant_id tenant-id
+                 :task_id task-id
+                 :event_type :llm_call
+                 :status :timeout
+                 :provider "anthropic"
+                 :model "claude"
+                 :error_code "timeout"
+                 :occurred_at (Instant/now)})]
+    (is (= :timeout (:status result)))
+    (is (nil? (:input_tokens result)))))
+
+(deftest validate-create-coerces-occurred-at-string-test
+  (let [tenant-id (UUID/randomUUID)
+        task-id (UUID/randomUUID)
+        inst (Instant/parse "2026-06-05T10:00:00Z")
+        result (schema/validate-create-input!
+                (assoc (support/sample-llm-call-input tenant-id task-id)
+                       :occurred_at "2026-06-05T10:00:00Z"))]
+    (is (= inst (:occurred_at result)))))
+
+(deftest validate-create-rejects-missing-occurred-at-test
+  (let [tenant-id (UUID/randomUUID)
+        task-id (UUID/randomUUID)]
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (schema/validate-create-input!
+                  (dissoc (support/sample-llm-call-input tenant-id task-id)
+                          :occurred_at))))))
 
 (deftest validate-tool-call-shape-test
   (let [tenant-id (UUID/randomUUID)
