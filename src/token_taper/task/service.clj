@@ -67,3 +67,28 @@
                                {:error_kind (:error/kind (ex-data e))}
                                (logging/build-error-fields logger e)))
         (throw e)))))
+
+(defn get-task!
+  [db task-id-str {:keys [logger metrics]}]
+  (let [task-id (api-schema/parse-task-path-id! task-id-str)]
+    (logging/info! logger :task_detail_requested {:task_id task-id})
+    (try
+      (if-let [task (repository/find-task-by-id db task-id)]
+        (do
+          (when metrics
+            (metrics/record-task-detail! metrics))
+          (logging/info! logger :task_detail_returned
+                         {:task_id (:task/id task)
+                          :tenant_id (:tenant/id task)
+                          :status (:task/status task)
+                          :workflow (:task/workflow task)})
+          task)
+        (throw (errors/not-found-error
+                "Task not found"
+                {:details {:task-id task-id}})))
+      (catch clojure.lang.ExceptionInfo e
+        (logging/error! logger :task_detail_failed
+                        (merge {:task_id task-id}
+                               {:error_kind (:error/kind (ex-data e))}
+                               (logging/build-error-fields logger e)))
+        (throw e)))))

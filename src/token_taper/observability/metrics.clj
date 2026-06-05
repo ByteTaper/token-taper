@@ -46,6 +46,10 @@
               (i/counter :tokentaper_task_finished_total
                          {:labels [:status :workflow]
                           :description "Total AI tasks finished via API."})
+              (i/counter :tokentaper_task_detail_requests_total
+                         {:description "Total task detail reads via API."})
+              (i/counter :tokentaper_task_trace_requests_total
+                         {:description "Total task trace reads via API."})
               (i/gauge :tokentaper_database_ready
                        {:description "Database readiness state."})
               (i/gauge :tokentaper_jvm_memory_used_bytes
@@ -89,8 +93,16 @@
 (defn record-task-finished!
   [{:keys [registry]} {:keys [status workflow]}]
   (i/inc registry :tokentaper_task_finished_total
-         {:status (or status "unknown")
-          :workflow (or workflow "unknown")}))
+       {:status (or status "unknown")
+        :workflow (or workflow "unknown")}))
+
+(defn record-task-detail!
+  [{:keys [registry]}]
+  (i/inc registry :tokentaper_task_detail_requests_total))
+
+(defn record-task-trace!
+  [{:keys [registry]}]
+  (i/inc registry :tokentaper_task_trace_requests_total))
 
 (defn record-http-request!
   [{:keys [registry]} {:keys [method route status duration-s]}]

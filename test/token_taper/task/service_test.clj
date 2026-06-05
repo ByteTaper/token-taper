@@ -45,3 +45,24 @@
               (str task-id)
               {:status :finished}
               {:logger (log-support/test-logger)}))))))
+
+(deftest get-task-returns-task-test
+  (let [task-id (UUID/randomUUID)
+        task {:task/id task-id :task/status :started}]
+    (with-redefs [repo/find-task-by-id (fn [_db id]
+                                        (is (= task-id id))
+                                        task)]
+      (is (= task
+             (service/get-task!
+              (Object.)
+              (str task-id)
+              {:logger (log-support/test-logger)}))))))
+
+(deftest get-task-not-found-test
+  (let [task-id (UUID/randomUUID)]
+    (with-redefs [repo/find-task-by-id (constantly nil)]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (service/get-task!
+                    (Object.)
+                    (str task-id)
+                    {:logger (log-support/test-logger)}))))))

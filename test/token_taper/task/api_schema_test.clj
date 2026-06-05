@@ -146,3 +146,77 @@
                            :status "finished"
                            :started_at "2026-06-05T10:00:00Z"
                            :metadata {}}))))
+
+(deftest parse-task-path-id-accepts-uuid-string-test
+  (let [id (UUID/randomUUID)]
+    (is (= id (api-schema/parse-task-path-id! (str id))))))
+
+(deftest parse-task-path-id-rejects-invalid-test
+  (try
+    (api-schema/parse-task-path-id! "not-a-uuid")
+    (is false "expected validation error")
+    (catch clojure.lang.ExceptionInfo e
+      (is (= :validation (:error/kind (ex-data e))))
+      (is (= [{:field "task_id" :reason "invalid_uuid"}]
+             (:error/details (ex-data e)))))))
+
+(deftest task-detail-response-includes-audit-timestamps-test
+  (let [tenant-id (UUID/randomUUID)
+        task-id (UUID/randomUUID)
+        started (Instant/parse "2026-06-05T10:00:00Z")
+        created (Instant/parse "2026-06-05T10:00:01Z")
+        updated (Instant/parse "2026-06-05T10:00:12Z")
+        body (api-schema/task-detail-response
+              {:task/id task-id
+               :tenant/id tenant-id
+               :task/status :started
+               :task/started-at started
+               :task/finished-at nil
+               :task/metadata {}
+               :task/created-at created
+               :task/updated-at updated})]
+    (is (= "started" (:status body)))
+    (is (= "2026-06-05T10:00:01Z" (:created_at body)))
+    (is (= "2026-06-05T10:00:12Z" (:updated_at body)))))
+
+(deftest task-trace-response-shape-test
+  (let [tenant-id (UUID/randomUUID)
+        task-id (UUID/randomUUID)
+        span-id (UUID/randomUUID)
+        event-id (UUID/randomUUID)
+        started (Instant/parse "2026-06-05T10:00:00Z")
+        occurred (Instant/parse "2026-06-05T10:00:04Z")
+        body (api-schema/task-trace-response
+              {:task {:task/id task-id
+                      :tenant/id tenant-id
+                      :task/status :started
+                      :task/started-at started
+                      :task/finished-at nil
+                      :task/metadata {:environment "dev"}}
+               :spans [{:span/id span-id
+                        :task/id task-id
+                        :span/parent-id nil
+                        :span/type :workflow
+                        :span/name "root"
+                        :span/status :started
+                        :span/started-at started
+                        :span/finished-at nil
+                        :span/metadata {}}]
+               :events [{:event/id event-id
+                         :task/id task-id
+                         :span/id span-id
+                         :event/type :llm_call
+                         :event/status :success
+                         :event/provider "anthropic"
+                         :event/model "claude"
+                         :event/input-tokens 100
+                         :event/output-tokens 50
+                         :event/latency-ms 1000
+                         :event/metadata {}
+                         :event/occurred-at occurred
+                         :event/created-at occurred}]})]
+    (is (= (str task-id) (get-in body [:task :task_id])))
+    (is (= 1 (count (:spans body))))
+    (is (= (str span-id) (:span_id (first (:spans body)))))
+    (is (= 1 (count (:events body))))
+    (is (= (str event-id) (:event_id (first (:events body)))))))

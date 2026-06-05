@@ -6,7 +6,8 @@
    [token-taper.api.response :as response]
    [token-taper.task.api-schema :as api-schema]
    [token-taper.task.errors :as errors]
-   [token-taper.task.service :as service]))
+   [token-taper.task.service :as service]
+   [token-taper.trace.service :as trace-service]))
 
 (defn- handle-task-api-exception
   [e {:keys [validation-fallback conflict-message conflict-details-fn not-found?]}]
@@ -57,3 +58,29 @@
               :not-found? true
               :conflict-message "Task is already in a terminal status."
               :conflict-details-fn api-schema/finish-conflict-details->api}))))))
+
+(defn get-task-handler
+  [{:keys [datasource logger metrics]}]
+  (fn [request]
+    (let [task-id (get-in request [:path-params :task_id])]
+      (try
+        (let [task (service/get-task! datasource task-id {:logger logger
+                                                          :metrics metrics})]
+          (response/ok-flat (api-schema/task-detail-response task)))
+        (catch clojure.lang.ExceptionInfo e
+          (handle-task-api-exception
+           e {:validation-fallback "Invalid task_id path parameter."
+              :not-found? true}))))))
+
+(defn get-task-trace-handler
+  [{:keys [datasource logger metrics]}]
+  (fn [request]
+    (let [task-id (get-in request [:path-params :task_id])]
+      (try
+        (let [trace (trace-service/get-task-trace! datasource task-id {:logger logger
+                                                                       :metrics metrics})]
+          (response/ok-flat (api-schema/task-trace-response trace)))
+        (catch clojure.lang.ExceptionInfo e
+          (handle-task-api-exception
+           e {:validation-fallback "Invalid task_id path parameter."
+              :not-found? true}))))))

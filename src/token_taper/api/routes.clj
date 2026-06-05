@@ -35,16 +35,15 @@
 
 (defn router
   [{:keys [system-info health-system metrics datasource logger]}]
-  (ring/router
-   [["/health/live" {:get (live-handler health-system)}]
-    ["/health/ready" {:get (ready-handler health-system)}]
-    ["/metrics" {:get (metrics-handler metrics)}]
-    ["/v1/system/info" {:get (system-info-handler system-info)}]
-    ["/v1/tasks/start" {:post (task-api/start-task-handler
-                               {:datasource datasource
-                                :logger logger
-                                :metrics metrics})}]
-    ["/v1/tasks/:task_id/finish" {:post (task-api/finish-task-handler
-                                         {:datasource datasource
-                                          :logger logger
-                                          :metrics metrics})}]]))
+  (let [task-opts {:datasource datasource :logger logger :metrics metrics}]
+    (ring/router
+     [["/health/live" {:get (live-handler health-system)}]
+      ["/health/ready" {:get (ready-handler health-system)}]
+      ["/metrics" {:get (metrics-handler metrics)}]
+      ["/v1/system/info" {:get (system-info-handler system-info)}]
+      ["/v1/tasks/start" {:post (task-api/start-task-handler task-opts)}]
+      ["/v1/tasks/:task_id" {:get (task-api/get-task-handler task-opts)}]
+      ["/v1/tasks/:task_id/trace" {:get (task-api/get-task-trace-handler task-opts)}]
+      ["/v1/tasks/:task_id/finish" {:post (task-api/finish-task-handler task-opts)}]]
+     ;; POST /start vs GET /:task_id share a path template; methods differ at runtime.
+     {:conflicts :ignore})))
