@@ -7,6 +7,7 @@
    [token-taper.api.response :as response]
    [token-taper.health.service :as health]
    [token-taper.observability.metrics :as metrics]
+   [token-taper.event.api :as event-api]
    [token-taper.task.api :as task-api]))
 
 (defn system-info-handler
@@ -35,7 +36,8 @@
 
 (defn router
   [{:keys [system-info health-system metrics datasource logger]}]
-  (let [task-opts {:datasource datasource :logger logger :metrics metrics}]
+  (let [task-opts {:datasource datasource :logger logger :metrics metrics}
+        event-opts {:datasource datasource :logger logger :metrics metrics}]
     (ring/router
      [["/health/live" {:get (live-handler health-system)}]
       ["/health/ready" {:get (ready-handler health-system)}]
@@ -44,6 +46,7 @@
       ["/v1/tasks/start" {:post (task-api/start-task-handler task-opts)}]
       ["/v1/tasks/:task_id" {:get (task-api/get-task-handler task-opts)}]
       ["/v1/tasks/:task_id/trace" {:get (task-api/get-task-trace-handler task-opts)}]
-      ["/v1/tasks/:task_id/finish" {:post (task-api/finish-task-handler task-opts)}]]
+      ["/v1/tasks/:task_id/finish" {:post (task-api/finish-task-handler task-opts)}]
+      ["/v1/events/llm-call" {:post (event-api/ingest-llm-call-event-handler event-opts)}]]
      ;; POST /start vs GET /:task_id share a path template; methods differ at runtime.
      {:conflicts :ignore})))

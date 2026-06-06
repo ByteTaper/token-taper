@@ -50,6 +50,9 @@
                          {:description "Total task detail reads via API."})
               (i/counter :tokentaper_task_trace_requests_total
                          {:description "Total task trace reads via API."})
+              (i/counter :tokentaper_llm_call_events_total
+                         {:labels [:provider :status]
+                          :description "Total LLM call events ingested via API."})
               (i/gauge :tokentaper_database_ready
                        {:description "Database readiness state."})
               (i/gauge :tokentaper_jvm_memory_used_bytes
@@ -103,6 +106,12 @@
 (defn record-task-trace!
   [{:keys [registry]}]
   (i/inc registry :tokentaper_task_trace_requests_total))
+
+(defn record-llm-call-event!
+  [{:keys [registry]} {:keys [provider status]}]
+  (i/inc registry :tokentaper_llm_call_events_total
+       {:provider (or provider "unknown")
+        :status (or status "unknown")}))
 
 (defn record-http-request!
   [{:keys [registry]} {:keys [method route status duration-s]}]

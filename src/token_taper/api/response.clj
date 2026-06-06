@@ -95,6 +95,20 @@
                        :message message
                        :details details}))
 
+(defn span-not-found-error-response
+  [details]
+  (flat-json-response 404
+                      {:error "span_not_found"
+                       :message "Span was not found."
+                       :details details}))
+
+(defn event-conflict-error-response
+  [message details]
+  (flat-json-response 409
+                      {:error "event_conflict"
+                       :message message
+                       :details details}))
+
 (defn diagnostic-ok
   "Flat JSON body for safe public diagnostics (e.g. GET /v1/system/info)."
   [body]
